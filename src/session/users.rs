@@ -1,5 +1,4 @@
 use crate::db_pool;
-
 use super::{Instance, extract_db, Error as GeneralError};
 
 struct User {
