@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use crate::db_pool;
 
-use super::{Instance, extract_db, extract_auth, Error as GeneralError};
+use super::{Session, extract_db, extract_auth, Error as GeneralError};
 
 #[derive(Serialize, Deserialize)]
 pub struct Block {
@@ -20,7 +20,7 @@ impl From<db_pool::Block> for Block {
     }
 }
 
-impl Instance {
+impl Session {
     pub async fn create_block(&self, content: &str) -> Result<String, GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);

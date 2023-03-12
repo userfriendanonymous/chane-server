@@ -1,4 +1,4 @@
-use super::{Instance, extract_db, Error as GeneralError};
+use super::{Session, extract_db, Error as GeneralError};
 use serde::{Serialize, Deserialize};
 use jsonwebtoken::{Algorithm, EncodingKey, DecodingKey, Validation};
 use rand::Rng;
@@ -171,7 +171,7 @@ pub fn compare_password(password: &str, hash: &str) -> bool {
     bcrypt::verify(password, hash)
 }
 
-impl Instance {
+impl Session {
     pub async fn login(&self, name: &str, password: &str) -> Result<Tokens, LoginError> {
         let tokens = Tokens::from_auth(AuthInfo {
             name: name.to_string()

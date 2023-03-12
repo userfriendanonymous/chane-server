@@ -1,5 +1,5 @@
 use crate::db_pool::{self, ChannelType};
-use super::{Instance, Error as GeneralError, extract_auth, extract_db};
+use super::{Session, Error as GeneralError, extract_auth, extract_db};
 
 struct Channel {
     id: String,
@@ -21,7 +21,7 @@ pub enum CreateError {
     General(GeneralError)
 }
 
-impl Instance {
+impl Session {
     pub async fn create_channel(&self, _type: ChannelType) -> Result<String, CreateError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized, CreateError::General);
         extract_db!(self, db_pool, db_pool_cloned);

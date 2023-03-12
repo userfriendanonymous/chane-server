@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 use mongodb::{options::ClientOptions, Client, Database, Collection};
 
 mod blocks;
