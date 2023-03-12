@@ -4,7 +4,7 @@ use serde_json::json;
 use crate::{http_server::{AppStateData, extract_session, extract_session_gen, handle_session_error}, db_pool::ChannelType};
 
 pub fn service() -> Scope {
-    web::scope("/channels")
+    web::scope("/groups")
     .service(get_one)
     .service(create)
 }
@@ -26,7 +26,7 @@ struct CreateBoby {
 #[post("/")]
 pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> impl Responder {
     extract_session!(app_state, session, session_shared, extract_session_gen);
-    match session.create_channel(body._type.clone()).await {
+    match session.create(body._type.clone()).await {
         Ok(id) => HttpResponse::Created().json(json!({"id": id})),
         Err(error) => handle_session_error(error)
     }

@@ -8,6 +8,7 @@ pub struct Block {
     pub id: Option<String>,
     pub content: String,
     pub author_name: String,
+    pub connected_channels: Vec<String>
 }
 
 impl DbPool {
@@ -23,13 +24,36 @@ impl DbPool {
         }
     }
 
-    pub async fn create_block(&self, content: &str, author_name: &str) -> Result<String, Error> {
+    pub async fn create_block(&self, content: &str, author_name: &str, connected_channels: &Vec<String>) -> Result<String, Error> {
         let document = Block {
             id: None,
             content: content.to_string(),
             author_name: author_name.to_string(),
+            connected_channels: connected_channels.clone()
         };
         let result = self.blocks.insert_one(document, None).await.map_err(Error::Query)?;
         Ok(result.inserted_id.to_string())
+    }
+
+    pub async fn connect_block_to_channel(&self, id: &str, channel_id: &str) -> Result<(), Error> {
+        match self.blocks.update_one(doc! {"_id": id}, doc! {"$push": {"connected_channels": channel_id}}, None).await {
+            Ok(result) => if result.modified_count > 1 {
+                Ok(())
+            } else {
+                Err(Error::NotFound)
+            },
+            Err(error) => Err(Error::Query(error))
+        }
+    }
+
+    pub async fn disconnect_block_from_channel(&self, id: &str, channel_id: &str) -> Result<(), Error> {
+        match self.blocks.update_one(doc! {"_id": id}, doc! {"$pull": {"connected_channels": channel_id}}, None).await {
+            Ok(result) => if result.modified_count > 1 {
+                Ok(())
+            } else {
+                Err(Error::NotFound)
+            },
+            Err(error) => Err(Error::Query(error))
+        }
     }
 }

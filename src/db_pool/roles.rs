@@ -10,10 +10,15 @@ pub struct Role {
     pub editors: Vec<String>,
     pub name: String,
     pub extends: Vec<String>,
+    pub permissions: RolePermissions
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RolePermissions {
     pub change_roles: Vec<String>,
     pub view_blocks: Vec<String>,
-    pub add_blocks: Vec<String>,
-    pub remove_blocks: Vec<String>,
+    pub connect_blocks: Vec<String>,
+    pub disconnect_blocks: Vec<String>,
     pub pin_blocks: Vec<String>,
     pub change_default_role: Vec<String>,
     pub change_description: Vec<String>,
@@ -29,35 +34,14 @@ impl DbPool {
         }
     }
 
-    pub async fn create_role(
-        &self,
-        name: String,
-        owner: String,
-        extends: Vec<String>,
-        editors: Vec<String>,
-        change_roles: Vec<String>,
-        view_blocks: Vec<String>,
-        add_blocks: Vec<String>,
-        remove_blocks: Vec<String>,
-        pin_blocks: Vec<String>,
-        change_default_role: Vec<String>,
-        change_description: Vec<String>,
-        pin_roles: Vec<String>,
-    ) -> Result<String, Error> {
+    pub async fn create_role(&self, name: &String, owner: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<String, Error> {
         let model = Role {
             id: None,
-            owner,
-            add_blocks,
-            change_default_role,
-            change_description,
-            change_roles,
-            editors,
-            extends,
-            name,
-            pin_blocks,
-            pin_roles,
-            remove_blocks,
-            view_blocks
+            owner: owner.clone(),
+            editors: editors.clone(),
+            extends: extends.clone(),
+            name: name.clone(),
+            permissions: permissions.clone()
         };
         let result = self.roles.insert_one(model, None).await.map_err(Error::Query)?;
         Ok(result.inserted_id.to_string())
@@ -65,31 +49,26 @@ impl DbPool {
 
     pub async fn update_role(
         &self,
-        id: String,
-        name: String,
-        extends: Vec<String>,
-        editors: Option<Vec<String>>,
-        change_roles: Vec<String>,
-        view_blocks: Vec<String>,
-        add_blocks: Vec<String>,
-        remove_blocks: Vec<String>,
-        pin_blocks: Vec<String>,
-        change_default_role: Vec<String>,
-        change_description: Vec<String>,
-        pin_roles: Vec<String>,
+        id: &String,
+        name: &String,
+        extends: &Vec<String>,
+        editors: &Option<Vec<String>>,
+        permissions: &RolePermissions
     ) -> Result<(), Error> {
         let result = self.roles.update_one(doc! {"id": id}, doc! {"$set": {
             "name": name,
             "extends": extends,
             "editors": editors,
-            "change_roles": change_roles,
-            "view_blocks": view_blocks,
-            "add_blocks": add_blocks,
-            "remove_blocks": remove_blocks,
-            "pin_blocks": pin_blocks,
-            "change_defualt_role": change_default_role,
-            "change_description": change_description,
-            "pin_roles": pin_roles,
+            "permissions": {
+                "change_roles": permissions.change_roles.clone(),
+                "view_blocks": permissions.view_blocks.clone(),
+                "connect_blocks": permissions.connect_blocks.clone(),
+                "disconnect_blocks": permissions.disconnect_blocks.clone(),
+                "pin_blocks": permissions.pin_blocks.clone(),
+                "change_default_role": permissions.change_default_role.clone(),
+                "change_description": permissions.change_description.clone(),
+                "pin_roles": permissions.pin_roles.clone()
+            }
         }}, None).await.map_err(Error::Query)?;
         Ok(())
     }

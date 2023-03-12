@@ -24,7 +24,7 @@ impl Session {
     pub async fn create_block(&self, content: &str) -> Result<String, GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
-        Ok(db_pool.create_block(content, auth.name.as_str()).await.map_err(GeneralError::Db)?)
+        Ok(db_pool.create_block(content, auth.name.as_str(), &Vec::new()).await.map_err(GeneralError::Db)?)
     }
 
     pub async fn get_block(&self, id: &str) -> Result<Block, GeneralError> {

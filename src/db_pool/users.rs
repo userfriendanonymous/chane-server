@@ -7,6 +7,7 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub password_hash: String,
+    pub groups: Vec<String>
 }
 
 pub struct CredentialUniqueness {
@@ -37,13 +38,13 @@ impl DbPool {
         let document = User {
             email: email.to_string(),
             name: name.to_string(),
-            password_hash: password_hash.to_string()
+            password_hash: password_hash.to_string(),
+            groups: Vec::new()
         };
         self.users.insert_one(document, None).await.map_err(Error::Query)?;
         Ok(())
     }
 
-    
     pub async fn check_if_unique_credentials(&self, name: &str, email: &str) -> Result<CredentialUniqueness, Error> {
         let filter = doc! {"$or": [{"name": name}, {"email": email}]};
         let result = self.users.find_one(filter, None).await.map_err(Error::Query)?;

@@ -1,7 +1,9 @@
+use futures_util::StreamExt;
 use serde::{Serialize, Deserialize};
 use crate::db_pool::utils::as_object_id;
 use super::{DbPool, Error};
-use mongodb::bson::{doc, oid::ObjectId};
+use mongodb::{bson::{doc, oid::ObjectId}, Cursor, options::FindOptions};
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Group {
@@ -13,6 +15,28 @@ pub struct Group {
     pub names: Vec<String>,
 }
 
+struct UserGroupsIterator {
+    cursor: Cursor<Group>
+}
+
+impl UserGroupsIterator {
+    pub async fn next(&mut self) -> Option<Result<Group, mongodb::error::Error>> {
+        self.cursor.next().await
+    }
+
+    pub async fn collect(&mut self) -> (Vec<Group>, Vec<mongodb::error::Error>) {
+        let mut result = Vec::new();
+        let mut errors = Vec::new();
+        while let Some(group_result) = self.next().await {
+            match group_result {
+                Ok(group) => result.push(group),
+                Err(error) => errors.push(error)
+            }
+        }
+        (result, errors)
+    }
+}
+
 impl DbPool {
     pub async fn get_group(&self, id: &str) -> Result<Group, Error> {
         match self.groups.find_one(doc! {"_id": as_object_id!(id)}, None).await.map_err(Error::Query)? {
@@ -21,13 +45,13 @@ impl DbPool {
         }
     }
 
-    pub async fn create_group(&self, owner: String, editors: Vec<String>, extends: Vec<String>, names: Vec<String>) -> Result<String, Error> {
+    pub async fn create_group(&self, owner: &String, editors: &Vec<String>, extends: &Vec<String>, names: &Vec<String>) -> Result<String, Error> {
         let model = Group {
             id: None,
-            owner,
-            editors,
-            extends,
-            names
+            owner: owner.clone(),
+            editors: editors.clone(),
+            extends: extends.clone(),
+            names: names.clone()
         };
         let result = self.groups.insert_one(model, None).await.map_err(Error::Query)?;
         Ok(result.inserted_id.to_string())
@@ -40,5 +64,13 @@ impl DbPool {
             "names": names
         }}, None).await.map_err(Error::Query)?;
         Ok(())
+    }
+
+    pub async fn get_groups_of_user(&self, name: &str) -> Result<UserGroupsIterator, Error> {
+        let options = FindOptions::builder().projection(doc! {"name": 1}).build();
+        let cursor = self.groups.find(doc! {"names": name}, Some(options)).await.map_err(Error::Query)?;
+        Ok(UserGroupsIterator {
+            cursor
+        })
     }
 }

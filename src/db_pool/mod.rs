@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, MutexGuard};
 use mongodb::{options::ClientOptions, Client, Database, Collection};
 
 mod blocks;
@@ -13,7 +13,7 @@ pub use users::User;
 pub use channels::{Channel, ChannelType};
 pub use blocks::Block;
 pub use groups::Group;
-pub use roles::Role;
+pub use roles::{Role, RolePermissions};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -56,3 +56,4 @@ impl DbPool {
 }
 
 pub type DbPoolShared = Arc<Mutex<DbPool>>;
+pub type DbPoolGuard<'a> = MutexGuard<'a, DbPool>;
