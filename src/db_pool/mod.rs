@@ -1,48 +1,56 @@
 use std::sync::{Arc, Mutex};
-use surrealdb::{Datastore, Session};
+use mongodb::{options::ClientOptions, Client, Database, Collection};
 
 mod blocks;
 mod channels;
 mod users;
 mod utils;
+mod groups;
+mod roles;
 
-pub use users::User;
-pub use channels::Channel;
-pub use blocks::Block;
+pub use users::Model as User;
+pub use channels::Model as Channel;
+pub use blocks::Model as Block;
+pub use groups::Model as Group;
+pub use roles::Model as Role;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("db query error: {0}")]
-    Query(String),
-    #[error("db objects not found")]
-    ObjectsNotFound,
-    #[error("surreal value expected to be object but is not")]
-    ValueShouldBeObject,
-    #[error("failed to extract first object (no objects were found)")]
-    FailedToExtractFirstObject,
-    #[error("object error: {0}")]
-    ObjectFailure(String),
-    #[error("failed to convert surreal type to custom struct: {0}")]
-    Conversion(String)
+    Query(mongodb::error::Error),
+    #[error("failed to parse object id: {0}")]
+    InvalidObjectId(mongodb::bson::oid::Error),
+    #[error("not found")]
+    NotFound,
 }
 pub struct DbPool {
-    datastore: Datastore,
-    session: Session
+    db: Database,
+    blocks: Collection<Block>,
+    users: Collection<User>,
+    groups: Collection<Group>,
+    roles: Collection<Role>,
+    channels: Collection<Channel>
 }
 
 impl DbPool {
-    pub async fn new_shared() -> DbPoolShared {
-        Arc::new(Mutex::new(Self::new().await))
+    pub async fn new_shared() -> mongodb::error::Result<DbPoolShared> {
+        Ok(Arc::new(Mutex::new(Self::new().await?)))
     }
 
-    pub async fn new() -> Self {
-        let datastore = Datastore::new("memory").await.unwrap();
-        let session = Session::for_db("ns", "db");
-
-        Self {
-            datastore,
-            session
-        }
+    pub async fn new() -> mongodb::error::Result<Self> {
+        let client = Client::with_options(
+            ClientOptions::parse("mongodb://localhost:27017").await?
+        )?;
+        let db = client
+        .database("admin");
+        Ok(Self {
+            blocks: db.collection("blocks"),
+            users: db.collection("users"),
+            groups: db.collection("groups"),
+            roles: db.collection("roles"),
+            channels: db.collection("channels"),
+            db
+        })
     }
 }
 
