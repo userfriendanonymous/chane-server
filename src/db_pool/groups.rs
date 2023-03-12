@@ -4,17 +4,17 @@ use super::{DbPool, Error};
 use mongodb::bson::{doc, oid::ObjectId};
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Model {
+pub struct Group {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-    owner: String,
-    editors: Vec<String>,
-    extends: Vec<String>,
-    names: Vec<String>,
+    pub id: Option<String>,
+    pub owner: String,
+    pub editors: Vec<String>,
+    pub extends: Vec<String>,
+    pub names: Vec<String>,
 }
 
 impl DbPool {
-    pub async fn get_group(&self, id: &str) -> Result<Model, Error> {
+    pub async fn get_group(&self, id: &str) -> Result<Group, Error> {
         match self.groups.find_one(doc! {"_id": as_object_id!(id)}, None).await.map_err(Error::Query)? {
             Some(model) => Ok(model),
             None => Err(Error::NotFound)
@@ -22,7 +22,7 @@ impl DbPool {
     }
 
     pub async fn create_group(&self, owner: String, editors: Vec<String>, extends: Vec<String>, names: Vec<String>) -> Result<String, Error> {
-        let model = Model {
+        let model = Group {
             id: None,
             owner,
             editors,

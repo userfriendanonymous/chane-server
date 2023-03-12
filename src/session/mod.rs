@@ -6,6 +6,8 @@ mod auth;
 mod users;
 mod blocks;
 mod channels;
+mod groups;
+mod roles;
 
 macro_rules! extract_db {
     ($self:expr, $db_pool:ident, $cloned:ident) => {
@@ -16,8 +18,11 @@ macro_rules! extract_db {
 pub(self) use extract_db;
 
 macro_rules! extract_auth {
+    ($self:expr, $error:expr, $error2:expr) => {
+        $self.auth.into_result(|error| $error2($error(error.clone())))?
+    };
     ($self:expr, $error:expr) => {
-        $self.auth.into_result(|error| $error(GeneralError::Unauthorized(error.clone())))?
+        $self.auth.into_result(|error| $error(error.clone()))?
     };
 }
 pub(self) use extract_auth;

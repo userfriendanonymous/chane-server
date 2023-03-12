@@ -3,7 +3,7 @@ use super::{DbPool, Error};
 use mongodb::bson::doc;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Model {
+pub struct User {
     pub name: String,
     pub email: String,
     pub password_hash: String,
@@ -24,7 +24,7 @@ impl Default for CredentialUniqueness {
 }
 
 impl DbPool {
-    pub async fn get_user(&self, name: &str) -> Result<Model, Error> {
+    pub async fn get_user(&self, name: &str) -> Result<User, Error> {
         let filter = doc! {"name": name};
         let result = self.users.find_one(filter, None).await.map_err(Error::Query)?;
         match result {
@@ -34,7 +34,7 @@ impl DbPool {
     }
 
     pub async fn create_user(&self, name: &str, email: &str, password_hash: &str) -> Result<(), Error> {
-        let document = Model {
+        let document = User {
             email: email.to_string(),
             name: name.to_string(),
             password_hash: password_hash.to_string()

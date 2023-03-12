@@ -25,7 +25,7 @@ impl Auth {
 }
 
 pub struct AuthInfo {
-    name: String
+    pub name: String
 }
 
 pub struct Tokens {

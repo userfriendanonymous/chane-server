@@ -3,7 +3,7 @@ use super::{Error, DbPool, utils::as_object_id};
 use mongodb::bson::{doc, oid::ObjectId};
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Model {
+pub struct Role {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     pub owner: String,
@@ -21,7 +21,7 @@ pub struct Model {
 }
 
 impl DbPool {
-    pub async fn get_role(&self, id: &str) -> Result<Model, Error> {
+    pub async fn get_role(&self, id: &str) -> Result<Role, Error> {
         let result = self.roles.find_one(doc! {"_id": as_object_id!(id)}, None).await.map_err(Error::Query)?;
         match result {
             Some(model) => Ok(model),
@@ -44,7 +44,7 @@ impl DbPool {
         change_description: Vec<String>,
         pin_roles: Vec<String>,
     ) -> Result<String, Error> {
-        let model = Model {
+        let model = Role {
             id: None,
             owner,
             add_blocks,

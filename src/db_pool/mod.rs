@@ -8,11 +8,11 @@ mod utils;
 mod groups;
 mod roles;
 
-pub use users::Model as User;
-pub use channels::Model as Channel;
-pub use blocks::Model as Block;
-pub use groups::Model as Group;
-pub use roles::Model as Role;
+pub use users::User;
+pub use channels::{Channel, ChannelType};
+pub use blocks::Block;
+pub use groups::Group;
+pub use roles::Role;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
