@@ -1,6 +1,9 @@
+use std::sync::Arc;
 use actix_web::{HttpServer, App, web::Data, HttpResponse};
 use serde_json::json;
+use tokio::sync::Mutex;
 use crate::{db_pool::{DbPoolShared, DbPool}, session::SessionShared};
+use api::LiveChannelState;
 
 mod api;
 mod middleware;
@@ -8,7 +11,8 @@ mod error_handlers;
 
 struct AppState {
     db_pool: DbPoolShared,
-    session: Option<SessionShared>
+    session: Option<SessionShared>,
+    live_channel_state: Arc<Mutex<LiveChannelState>>
 }
 
 fn extract_session_gen() -> HttpResponse {

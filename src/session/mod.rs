@@ -4,6 +4,7 @@ use crate::db_pool::{DbPoolShared, self};
 use auth::Auth;
 use self::auth::Tokens;
 pub use roles::{RoleWrappedError, CreateRoleError};
+pub use blocks::Block;
 
 mod auth;
 mod users;

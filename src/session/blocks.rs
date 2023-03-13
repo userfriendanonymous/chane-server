@@ -7,7 +7,7 @@ use super::{Session, extract_db, extract_auth, Error as GeneralError};
 pub struct Block {
     pub id: String,
     pub content: String,
-    pub author_name: String,
+    pub owner: String,
 }
 
 impl From<db_pool::Block> for Block {
@@ -15,7 +15,7 @@ impl From<db_pool::Block> for Block {
         Self {
             id: model.id.unwrap(), // UGH I HATE THE UNWRAP!!!
             content: model.content,
-            author_name: model.author_name
+            owner: model.owner
         }
     }
 }

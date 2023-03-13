@@ -4,6 +4,8 @@ mod blocks;
 mod channels;
 mod users;
 mod roles;
+mod live_channel;
+pub use live_channel::State as LiveChannelState;
 
 pub fn service() -> Scope {
     web::scope("/api")

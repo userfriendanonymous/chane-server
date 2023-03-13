@@ -7,7 +7,7 @@ pub struct Block {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     pub content: String,
-    pub author_name: String,
+    pub owner: String,
     pub connected_channels: Vec<String>
 }
 
@@ -24,11 +24,11 @@ impl DbPool {
         }
     }
 
-    pub async fn create_block(&self, content: &str, author_name: &str, connected_channels: &Vec<String>) -> Result<String, Error> {
+    pub async fn create_block(&self, content: &str, owner: &str, connected_channels: &Vec<String>) -> Result<String, Error> {
         let document = Block {
             id: None,
             content: content.to_string(),
-            author_name: author_name.to_string(),
+            owner: owner.to_string(),
             connected_channels: connected_channels.clone()
         };
         let result = self.blocks.insert_one(document, None).await?;
