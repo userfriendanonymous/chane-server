@@ -1,6 +1,8 @@
+use serde::{Serialize, Deserialize};
 use crate::db_pool;
 use super::{Session, extract_db, Error as GeneralError};
 
+#[derive(Serialize, Deserialize)]
 struct User {
     name: String,
 }

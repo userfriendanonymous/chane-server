@@ -1,7 +1,7 @@
 use actix_web::{Scope, web::{self, Json, Path}, Responder, HttpResponse, get, post};
 use serde::{Serialize, Deserialize};
 use serde_json::json;
-use super::super::{AppStateData, extract_session, extract_session_gen, handle_session_error};
+use super::super::{AppStateData, extract_session, extract_session_gen};
 
 pub fn service() -> Scope {
     web::scope("/blocks")
@@ -14,7 +14,7 @@ async fn get_one(app_state: AppStateData, id: Path<String>) -> impl Responder {
     extract_session!(app_state, session, session_shared, extract_session_gen);
     match session.get_block(id.as_str()).await {
         Ok(block) => HttpResponse::Ok().json(block),
-        Err(error) => handle_session_error(error)
+        Err(error) => HttpResponse::from(error)
     }
 }
 
@@ -28,6 +28,6 @@ async fn create(app_state: AppStateData, body: Json<CreateBody>) -> impl Respond
     extract_session!(app_state, session, session_shared, extract_session_gen);
     match session.create_block(body.content.as_str()).await {
         Ok(id) => HttpResponse::Ok().json(json!({"id": id})),
-        Err(error) => handle_session_error(error)
+        Err(error) => HttpResponse::from(error)
     }
 }

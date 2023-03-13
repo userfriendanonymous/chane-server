@@ -25,23 +25,48 @@ impl From<db_pool::Role> for Role {
     }
 }
 
+#[derive(thiserror::Error, Debug)]
+pub enum CreateRoleError {
+    #[error("general: {0}")]
+    General(GeneralError),
+    #[error("following role doesn't exist: {0}")]
+    RoleDoesNotExist(String, db_pool::Error)
+}
+impl From<GeneralError> for CreateRoleError {
+    fn from(value: GeneralError) -> Self {
+        Self::General(value)
+    }
+}
+impl From<db_pool::Error> for CreateRoleError {
+    fn from(value: db_pool::Error) -> Self {
+        Self::General(GeneralError::Db(value))
+    }
+}
 
 impl Session {
     pub async fn get_role(&self, id: &str) -> Result<Role, GeneralError> {
         extract_db!(self, db_pool, db_pool_cloned);
-        Ok(Role::from(db_pool.get_role(id).await.map_err(GeneralError::Db)?))
+        Ok(Role::from(db_pool.get_role(id).await?))
     }
 
-    pub async fn create_role(&self, name: &String, owner: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<String, GeneralError> {
+    pub async fn create_role(&self, name: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<String, CreateRoleError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
-        db_pool.create_role(name, owner, extends, editors, permissions).await.map_err(GeneralError::Db)
+
+        for role_id in extends { // validates that all extending roles exist to avoid stuff like recursion to itself
+            match db_pool.get_role(role_id).await {
+                Ok(_) => {}
+                Err(error) => return Err(CreateRoleError::RoleDoesNotExist(role_id.clone(), error))
+            }
+        }
+
+        Ok(db_pool.create_role(name, &auth.name, extends, editors, permissions).await?)
     }
 
     pub async fn update_role(&self, id: &String, name: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<(), GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
-        let role = db_pool.get_role(id).await.map_err(GeneralError::Db)?;
+        let role = db_pool.get_role(id).await?;
 
         let editors = if role.owner == auth.name {
             Some(editors.clone())

@@ -1,10 +1,10 @@
-use actix_web::{HttpServer, App, web::Data, HttpResponse, Responder};
+use actix_web::{HttpServer, App, web::Data, HttpResponse};
 use serde_json::json;
-use tokio::sync::MutexGuard;
-use crate::{db_pool::{DbPoolShared, DbPool, Error as DbError}, session::{SessionShared, Error as SessionError, Session, self}};
+use crate::{db_pool::{DbPoolShared, DbPool}, session::SessionShared};
 
 mod api;
 mod middleware;
+mod error_handlers;
 
 struct AppState {
     db_pool: DbPoolShared,
@@ -28,25 +28,6 @@ macro_rules! extract_session {
     };
 }
 pub(self) use extract_session;
-
-fn handle_session_error(error: SessionError) -> HttpResponse {
-    match error {
-        SessionError::Db(error) => match error {
-            DbError::InvalidObjectId(message) => HttpResponse::BadRequest().json(json!({
-                "message": "invalid object id"
-            })),
-            DbError::NotFound => HttpResponse::NotFound().json(json!({
-                "message": "not found"
-            })),
-            DbError::Query(error) => HttpResponse::InternalServerError().json(json!({
-                "db query error": error.to_string()
-            })),
-        },
-        SessionError::Unauthorized(message) => HttpResponse::Unauthorized().json(json!({
-            "unauthorized": message
-        }))
-    }
-}
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
