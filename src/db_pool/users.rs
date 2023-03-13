@@ -27,7 +27,7 @@ impl Default for CredentialUniqueness {
 impl DbPool {
     pub async fn get_user(&self, name: &str) -> Result<User, Error> {
         let filter = doc! {"name": name};
-        let result = self.users.find_one(filter, None).await.map_err(Error::Query)?;
+        let result = self.users.find_one(filter, None).await?;
         match result {
             Some(model) => Ok(model),
             None => Err(Error::NotFound)
@@ -41,13 +41,13 @@ impl DbPool {
             password_hash: password_hash.to_string(),
             groups: Vec::new()
         };
-        self.users.insert_one(document, None).await.map_err(Error::Query)?;
+        self.users.insert_one(document, None).await?;
         Ok(())
     }
 
     pub async fn check_if_unique_credentials(&self, name: &str, email: &str) -> Result<CredentialUniqueness, Error> {
         let filter = doc! {"$or": [{"name": name}, {"email": email}]};
-        let result = self.users.find_one(filter, None).await.map_err(Error::Query)?;
+        let result = self.users.find_one(filter, None).await?;
         Ok(match result {
             None => CredentialUniqueness::default(),
             Some(model) => {

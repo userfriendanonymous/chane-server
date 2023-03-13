@@ -15,7 +15,7 @@ impl DbPool {
     pub async fn get_block(&self, id: &str) -> Result<Block, Error> {
         let object_id = as_object_id!(id);
         let filter = doc! {"_id": object_id};
-        let result = self.blocks.find_one(filter, None).await.map_err(Error::Query)?;
+        let result = self.blocks.find_one(filter, None).await?;
         match result {
             Some(model) => {
                 Ok(model)
@@ -31,7 +31,7 @@ impl DbPool {
             author_name: author_name.to_string(),
             connected_channels: connected_channels.clone()
         };
-        let result = self.blocks.insert_one(document, None).await.map_err(Error::Query)?;
+        let result = self.blocks.insert_one(document, None).await?;
         Ok(result.inserted_id.to_string())
     }
 

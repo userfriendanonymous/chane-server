@@ -20,13 +20,14 @@ pub async fn get_one(app_state: AppStateData, id: Path<String>) -> impl Responde
 
 #[derive(Deserialize)]
 struct CreateBoby {
-    _type: ChannelType
+    pub _type: ChannelType,
+    pub description: String,
 }
 
 #[post("/")]
 pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> impl Responder {
     extract_session!(app_state, session, session_shared, extract_session_gen);
-    match session.create_channel(body._type.clone()).await {
+    match session.create_channel(&body._type, &body.description).await {
         Ok(id) => HttpResponse::Created().json(json!({"id": id})),
         Err(error) => handle_session_error(error)
     }

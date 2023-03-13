@@ -24,6 +24,19 @@ pub enum Error {
     #[error("not found")]
     NotFound,
 }
+
+impl From<mongodb::error::Error> for Error {
+    fn from(value: mongodb::error::Error) -> Self {
+        Self::Query(value)
+    }
+}
+
+impl From<mongodb::bson::oid::Error> for Error {
+    fn from(value: mongodb::bson::oid::Error) -> Self {
+        Self::InvalidObjectId(value)
+    }
+}
+
 pub struct DbPool {
     db: Database,
     blocks: Collection<Block>,

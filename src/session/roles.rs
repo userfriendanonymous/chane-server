@@ -25,8 +25,60 @@ impl From<db_pool::Role> for Role {
     }
 }
 
-pub async fn get_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, user_name: &str) -> Result<(Role, Channel), GeneralError> {
-    let channel = db_pool.get_channel(channel_id).await.map_err(GeneralError::Db)?;
+
+impl Session {
+    pub async fn get_role(&self, id: &str) -> Result<Role, GeneralError> {
+        extract_db!(self, db_pool, db_pool_cloned);
+        Ok(Role::from(db_pool.get_role(id).await.map_err(GeneralError::Db)?))
+    }
+
+    pub async fn create_role(&self, name: &String, owner: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<String, GeneralError> {
+        let auth = extract_auth!(self, GeneralError::Unauthorized);
+        extract_db!(self, db_pool, db_pool_cloned);
+        db_pool.create_role(name, owner, extends, editors, permissions).await.map_err(GeneralError::Db)
+    }
+
+    pub async fn update_role(&self, id: &String, name: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<(), GeneralError> {
+        let auth = extract_auth!(self, GeneralError::Unauthorized);
+        extract_db!(self, db_pool, db_pool_cloned);
+        let role = db_pool.get_role(id).await.map_err(GeneralError::Db)?;
+
+        let editors = if role.owner == auth.name {
+            Some(editors.clone())
+        } else if role.editors.contains(&auth.name) {
+            None
+        } else {
+            return Err(GeneralError::Unauthorized("You don't have permissions to edit this role".to_owned()))
+        };
+        
+        db_pool.update_role(id, name, extends, &editors, permissions).await.map_err(GeneralError::Db)
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum RoleWrappedError {
+    #[error("Recursion detected at: {0}")]
+    Recursion(String),
+    #[error("General: {0}")]
+    General(GeneralError),
+}
+
+impl From<GeneralError> for RoleWrappedError { // BRILLIANT! BYE, ".map_err(...)"
+    fn from(value: GeneralError) -> Self {
+        Self::General(value)
+    }
+}
+
+impl From<db_pool::Error> for RoleWrappedError {
+    fn from(value: db_pool::Error) -> Self {
+        Self::General(GeneralError::Db(value))
+    }
+}
+
+pub async fn resolve_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, user_name: &str)
+-> Result<(db_pool::Role, Channel, Vec<db_pool::Error>), RoleWrappedError>
+{
+    let channel = db_pool.get_channel(channel_id).await?;
 
     let role_id = &channel.default_role;
     for role in &channel.roles {
@@ -35,7 +87,49 @@ pub async fn get_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, user
             break;
         }
     }
-    Ok((Role::from(db_pool.get_role(role_id).await.map_err(GeneralError::Db)?), channel))
+    let (role, errors) = resolve_role(db_pool, role_id.as_str()).await?;
+    Ok((role, channel, errors))
+}
+
+pub async fn resolve_role_permissions<'g>(db_pool: &DbPoolGuard<'g>, id: &str, permissions: &RolePermissions, extends: &Vec<String>)
+-> Result<(RolePermissions, Vec<db_pool::Error>), RoleWrappedError>
+{
+    let mut permissions = permissions.clone();
+    let mut role_ids = extends.clone();
+    let mut processed_role_ids = role_ids.clone();
+    processed_role_ids.push(id.to_string());
+
+    let mut errors = Vec::new();
+
+    while let Some(role_id) = role_ids.last() {
+        let role = match db_pool.get_role(&role_id).await {
+            Ok(role) => role,
+            Err(error) => {
+                errors.push(error);
+                break;
+            }
+        };
+
+        permissions.add(&role.permissions);
+
+        for role_id in role.extends.iter() {
+            if processed_role_ids.contains(role_id){
+                return Err(RoleWrappedError::Recursion(role_id.to_string()));
+            } else {
+                role_ids.push(role_id.to_string());
+                processed_role_ids.push(role_id.to_string());
+            }
+        }
+    }
+
+    Ok((permissions, errors))
+}
+
+pub async fn resolve_role<'g>(db_pool: &DbPoolGuard<'g>, id: &str) -> Result<(db_pool::Role, Vec<db_pool::Error>), RoleWrappedError> {
+    let mut role = db_pool.get_role(&id).await?;
+    let (permissions, errors) = resolve_role_permissions(db_pool, id, &role.permissions, &role.extends).await?;
+    role.permissions = permissions;
+    Ok((role, errors))
 }
 
 fn catch_vec_intersection<T: PartialEq>(vec1: &Vec<T>, vec2: &Vec<T>) -> bool {
@@ -66,33 +160,22 @@ impl<'a> RolePermissionValidator<'a> {
     pub fn can_disconnect_blocks(&self) -> bool {
         catch_vec_intersection(self.labels, &self.permissions.disconnect_blocks)
     }
-}
-
-impl Session {
-    pub async fn get_role(&self, id: &str) -> Result<Role, GeneralError> {
-        extract_db!(self, db_pool, db_pool_cloned);
-        Ok(Role::from(db_pool.get_role(id).await.map_err(GeneralError::Db)?))
+    pub fn can_pin_block(&self) -> bool {
+        catch_vec_intersection(self.labels, &self.permissions.pin_block)
     }
-
-    pub async fn create_role(&self, name: &String, owner: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<String, GeneralError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        extract_db!(self, db_pool, db_pool_cloned);
-        db_pool.create_role(name, owner, extends, editors, permissions).await.map_err(GeneralError::Db)
+    pub fn can_change_description(&self) -> bool {
+        catch_vec_intersection(self.labels, &self.permissions.change_description)
     }
-
-    pub async fn update_role(&self, id: &String, name: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<(), GeneralError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        extract_db!(self, db_pool, db_pool_cloned);
-        let role = db_pool.get_role(id).await.map_err(GeneralError::Db)?;
-
-        let editors = if role.owner == auth.name {
-            Some(editors.clone())
-        } else if role.editors.contains(&auth.name) {
-            None
-        } else {
-            return Err(GeneralError::Unauthorized("You don't have permissions to edit this role".to_owned()))
-        };
-        
-        db_pool.update_role(id, name, extends, &editors, permissions).await.map_err(GeneralError::Db)
+    pub fn can_change_default_role(&self) -> bool {
+        catch_vec_intersection(self.labels, &self.permissions.change_default_role)
+    }
+    pub fn can_view_blocks(&self) -> bool {
+        catch_vec_intersection(self.labels, &self.permissions.view_blocks)
+    }
+    pub fn can_pin_roles(&self) -> bool {
+        catch_vec_intersection(self.labels, &self.permissions.pin_roles)
+    }
+    pub fn can_set_labels(&self) -> bool {
+        self.permissions.set_labels
     }
 }

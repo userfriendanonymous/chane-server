@@ -37,6 +37,12 @@ pub enum Error {
     Unauthorized(String),
 }
 
+impl From<db_pool::Error> for Error {
+    fn from(value: db_pool::Error) -> Self {
+        Self::Db(value)
+    }
+}
+
 pub struct Session {
     db_pool: DbPoolShared,
     auth_keys: auth::Keys,
