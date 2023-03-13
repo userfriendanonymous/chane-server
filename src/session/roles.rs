@@ -105,10 +105,10 @@ pub async fn resolve_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, 
 {
     let channel = db_pool.get_channel(channel_id).await?;
 
-    let role_id = &channel.default_role;
+    let mut role_id = &channel.default_role;
     for role in &channel.roles {
         if role.0 == user_name {
-            let role_id = &role.1;
+            role_id = &role.1;
             break;
         }
     }

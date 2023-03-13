@@ -58,7 +58,7 @@ impl DbPool {
     }
 
     pub async fn update_group(&self, id: String, editors: Option<Vec<String>>, extends: Vec<String>, names: Vec<String>) -> Result<(), Error> {
-        let result = self.groups.update_one(doc! {"_id": id}, doc! {"$set": {
+        self.groups.update_one(doc! {"_id": id}, doc! {"$set": {
             "editors": editors,
             "extends": extends,
             "names": names
