@@ -412,6 +412,7 @@ dependencies = [
  "actix-rt",
  "actix-web",
  "actix-ws",
+ "async-trait",
  "chrono",
  "futures-util",
  "jsonwebtoken",

@@ -171,7 +171,7 @@ pub fn compare_password(password: &str, hash: &str) -> bool {
     bcrypt::verify(password, hash)
 }
 
-impl Session {
+impl<LC> Session<LC> {
     pub async fn login(&self, name: &str, password: &str) -> Result<Tokens, LoginError> {
         let tokens = Tokens::from_auth(AuthInfo {
             name: name.to_string()

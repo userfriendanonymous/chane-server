@@ -1,10 +1,10 @@
 use actix_web::{HttpRequest, web, HttpResponse, get};
-use actix_ws::{Message as WsMessage, Session};
-use crate::session::Block;
-
+use actix_ws::Session;
+use crate::session::{self, LiveMessage};
 use super::super::AppStateData;
 use std::{sync::Arc, collections::HashMap};
 use tokio::sync::Mutex;
+use async_trait::async_trait;
 
 pub struct Peer {
     pub session: Session
@@ -30,17 +30,34 @@ impl From<actix_ws::Closed> for Error {
 }
 
 impl Peer {
-    pub async fn receive_block(&mut self, block: &Block) -> Result<(), Error> {
-        self.session.text(serde_json::to_string(block)?).await?;
+    pub async fn receive_message(&mut self, message: &LiveMessage) -> Result<(), Error> {
+        self.session.text(serde_json::to_string(message)?).await?;
         Ok(())
     }
 }
 
+type Channels = HashMap<String, Vec<PeerShared>>;
+type PeerShared = Arc<Mutex<Peer>>;
+
 #[derive(Default)]
 pub struct State {
-    channels: Mutex<
-        HashMap<String, Vec<Arc<Mutex<Peer>>>>
-    >,
+    channels: Mutex<Channels>,
+}
+
+#[async_trait]
+impl session::LiveChannel for State {
+    async fn receive_message(&mut self, channel_id: &str, message: &LiveMessage) {
+        let empty_peers = Vec::new();
+        let channels = self.channels.lock().await;
+        let peers = channels.get(channel_id).unwrap_or(&empty_peers);
+        let mut errors = Vec::new();
+        for peer in peers {
+            if let Err(error) = peer.lock().await.receive_message(message).await {
+                errors.push(error);
+            }
+        }
+        println!("errors: {errors:?}");
+    }
 }
 
 pub type StateShared = Arc<Mutex<State>>;
@@ -59,19 +76,6 @@ impl State {
             }
         };
     }
-
-    pub async fn send_block(&mut self, block: &Block, channel_id: &String) -> Vec<Error> {
-        let empty_peers = Vec::new();
-        let channels = self.channels.lock().await;
-        let peers = channels.get(channel_id).unwrap_or(&empty_peers);
-        let mut errors = Vec::new();
-        for peer in peers {
-            if let Err(error) = peer.lock().await.receive_block(block).await {
-                errors.push(error);
-            }
-        }
-        errors
-    }
 }
 
 #[get("/chat")]
@@ -87,19 +91,6 @@ pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::P
 
     actix_rt::spawn(async move {
         while let Some(Ok(message)) = message_stream.recv().await {
-            match message {
-                WsMessage::Text(message) => {
-                    let message = message.to_string();
-                    println!("Got text, {}", &message);
-
-                    let block = serde_json::from_str(message.as_str()).unwrap(); // TO FIX THIS!
-                    let errors = chat_state.lock().await.send_block(&block, &"".to_string()).await;
-                    if !errors.is_empty() {
-                        println!("errors received: {errors:?}");
-                    }
-                },
-                _ => break
-            }
         }
 
         let _ = session.close(None).await;

@@ -23,7 +23,7 @@ impl From<db_pool::Channel> for Channel {
     }
 }
 
-impl Session {
+impl<LC> Session<LC> {
     pub async fn create_channel(&self, _type: &ChannelType, description: &str, default_role: &str, labels: &[String]) -> Result<String, GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);

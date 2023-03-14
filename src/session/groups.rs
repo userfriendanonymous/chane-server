@@ -1,3 +1,4 @@
+/*
 use serde::{Serialize, Deserialize}; // GROUPS ARE DEPRECATED THING
 use crate::db_pool;
 
@@ -24,7 +25,7 @@ impl From<db_pool::Group> for Group {
     }
 }
 
-impl Session {
+impl<LC> Session<LC> {
     pub async fn get_group(&self, id: &str) -> Result<Group, GeneralError> {
         extract_db!(self, db_pool, db_pool_cloned);
         Ok(Group::from(db_pool.get_group(id).await.map_err(GeneralError::Db)?))
@@ -36,3 +37,4 @@ impl Session {
         db_pool.create_group(&auth.name, editors, extends, names).await.map_err(GeneralError::Db)
     }
 }
+*/

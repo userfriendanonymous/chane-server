@@ -15,7 +15,7 @@ impl From<db_pool::User> for User {
     }
 }
 
-impl Session {
+impl<LC> Session<LC> {
     pub async fn get_user(&self, name: &str) -> Result<User, GeneralError> {
         extract_db!(self, db_pool, db_pool_cloned);
         Ok(User::from(db_pool.get_user(name).await?))

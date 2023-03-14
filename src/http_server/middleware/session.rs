@@ -2,13 +2,13 @@ use std::future::{ready, Ready};
 use actix_web::{Error, dev::{Transform, forward_ready, Service, ServiceRequest, ServiceResponse}};
 use futures_util::future::LocalBoxFuture;
 
-use crate::session::SessionShared;
+use crate::session::{SessionShared, LiveChannel};
 
-pub struct MiddlewareFactory {
-    session: SessionShared
+pub struct MiddlewareFactory<LC> {
+    session: SessionShared<LC>
 }
 
-impl<S, B> Transform<S, ServiceRequest> for MiddlewareFactory
+impl<S, B, LC: 'static> Transform<S, ServiceRequest> for MiddlewareFactory<LC>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
@@ -17,7 +17,7 @@ where
     type Response = ServiceResponse<B>;
     type Error = Error;
     type InitError = ();
-    type Transform = Middleware<S>;
+    type Transform = Middleware<S, LC>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
@@ -28,16 +28,16 @@ where
     }
 }
 
-pub struct Middleware<S> {
+pub struct Middleware<S, LC> {
     service: S,
-    session: SessionShared
+    session: SessionShared<LC>
 }
 
-impl<S, B> Service<ServiceRequest> for Middleware<S>
+impl<S, B, LC: 'static> Service<ServiceRequest> for Middleware<S, LC> // ugh need to fix thoose static
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
-    B: 'static
+    B: 'static,
 {
     type Response = ServiceResponse<B>;
     type Error = Error;

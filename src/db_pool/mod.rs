@@ -12,7 +12,6 @@ mod roles;
 pub use users::User;
 pub use channels::{Channel, ChannelType};
 pub use blocks::Block;
-pub use groups::Group;
 pub use roles::{Role, RolePermissions};
 
 #[derive(Debug, thiserror::Error)]
@@ -41,7 +40,6 @@ pub struct DbPool {
     db: Database,
     blocks: Collection<Block>,
     users: Collection<User>,
-    groups: Collection<Group>,
     roles: Collection<Role>,
     channels: Collection<Channel>
 }
@@ -60,7 +58,6 @@ impl DbPool {
         Ok(Self {
             blocks: db.collection("blocks"),
             users: db.collection("users"),
-            groups: db.collection("groups"),
             roles: db.collection("roles"),
             channels: db.collection("channels"),
             db

@@ -20,7 +20,7 @@ impl From<db_pool::Block> for Block {
     }
 }
 
-impl Session {
+impl<LC> Session<LC> {
     pub async fn create_block(&self, content: &str) -> Result<String, GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);

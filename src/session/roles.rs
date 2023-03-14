@@ -43,7 +43,7 @@ impl From<db_pool::Error> for CreateRoleError {
     }
 }
 
-impl Session {
+impl<LC> Session<LC> {
     pub async fn get_role(&self, id: &str) -> Result<Role, GeneralError> {
         extract_db!(self, db_pool, db_pool_cloned);
         Ok(Role::from(db_pool.get_role(id).await?))

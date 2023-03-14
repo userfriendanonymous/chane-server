@@ -1,3 +1,4 @@
+/*
 use actix_web::{Scope, web::{self, Path, Json}, post, get, HttpResponse, Responder};
 use serde::Deserialize;
 use serde_json::json;
@@ -31,3 +32,4 @@ pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> impl Res
         Err(error) => handle_session_error(error)
     }
 }
+*/

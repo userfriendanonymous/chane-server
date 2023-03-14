@@ -1,7 +1,7 @@
 use actix_web::{HttpServer, App, web::Data, HttpResponse};
 use serde_json::json;
 use crate::{db_pool::{DbPoolShared, DbPool}, session::SessionShared};
-use api::{LiveChannelStateShared, LiveChannelState};
+pub use api::{LiveChannelStateShared, LiveChannelState};
 
 mod api;
 mod middleware;
@@ -9,7 +9,7 @@ mod error_handlers;
 
 pub struct AppState {
     db_pool: DbPoolShared,
-    session: Option<SessionShared>,
+    session: Option<SessionShared<LiveChannelState>>,
     live_channel_state: LiveChannelStateShared
 }
 
