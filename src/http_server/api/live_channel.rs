@@ -43,39 +43,47 @@ pub struct State {
     >,
 }
 
+pub type StateShared = Arc<Mutex<State>>;
+
 impl State {
+    pub fn default_shared() -> StateShared {
+        Arc::new(Mutex::new(Self::default()))
+    }
+
     pub async fn connect(&mut self, peer: &Arc<Mutex<Peer>>, channel_id: &String){
         let mut channels = self.channels.lock().await;
         match channels.get_mut(channel_id) {
             Some(peers) => peers.push(peer.clone()),
             None => {
-                let mut peers = Vec::new();
-                peers.push(peer.clone());
-                channels.insert(channel_id.clone(), peers);
+                channels.insert(channel_id.clone(), vec![peer.clone()]);
             }
         };
     }
-  
-    pub async fn send_block(&mut self, block: &Block, channel_id: &String) {
+
+    pub async fn send_block(&mut self, block: &Block, channel_id: &String) -> Vec<Error> {
         let empty_peers = Vec::new();
         let channels = self.channels.lock().await;
         let peers = channels.get(channel_id).unwrap_or(&empty_peers);
+        let mut errors = Vec::new();
         for peer in peers {
-            peer.lock().await.receive_block(block).await;
+            if let Err(error) = peer.lock().await.receive_block(block).await {
+                errors.push(error);
+            }
         }
+        errors
     }
 }
 
 #[get("/chat")]
 pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    let (response, mut session, mut message_stream) = actix_ws::handle(&request, body)?;
+    let (response, session, mut message_stream) = actix_ws::handle(&request, body)?;
 
     let peer = Arc::new(Mutex::new(Peer {
         session: session.clone()
     }));
 
     let chat_state = app_state.live_channel_state.clone();
-    chat_state.lock().await.connect(&peer, &"".to_string());
+    chat_state.lock().await.connect(&peer, &"".to_string()).await;
 
     actix_rt::spawn(async move {
         while let Some(Ok(message)) = message_stream.recv().await {
@@ -85,7 +93,10 @@ pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::P
                     println!("Got text, {}", &message);
 
                     let block = serde_json::from_str(message.as_str()).unwrap(); // TO FIX THIS!
-                    chat_state.lock().await.send_block(&block, &"".to_string()).await;
+                    let errors = chat_state.lock().await.send_block(&block, &"".to_string()).await;
+                    if !errors.is_empty() {
+                        println!("errors received: {errors:?}");
+                    }
                 },
                 _ => break
             }

@@ -15,7 +15,7 @@ pub struct Group {
     pub names: Vec<String>,
 }
 
-struct UserGroupsIterator {
+pub struct UserGroupsIterator {
     cursor: Cursor<Group>
 }
 
@@ -45,13 +45,13 @@ impl DbPool {
         }
     }
 
-    pub async fn create_group(&self, owner: &String, editors: &Vec<String>, extends: &Vec<String>, names: &Vec<String>) -> Result<String, Error> {
+    pub async fn create_group(&self, owner: &str, editors: &[String], extends: &[String], names: &[String]) -> Result<String, Error> {
         let model = Group {
             id: None,
-            owner: owner.clone(),
-            editors: editors.clone(),
-            extends: extends.clone(),
-            names: names.clone()
+            owner: owner.to_owned(),
+            editors: editors.to_owned(),
+            extends: extends.to_owned(),
+            names: names.to_owned()
         };
         let result = self.groups.insert_one(model, None).await.map_err(Error::Query)?;
         Ok(result.inserted_id.to_string())

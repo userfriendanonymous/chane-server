@@ -57,13 +57,13 @@ impl DbPool {
         }
     }
 
-    pub async fn create_role(&self, name: &String, owner: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<String, Error> {
+    pub async fn create_role(&self, name: &str, owner: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<String, Error> {
         let model = Role {
             id: None,
-            owner: owner.clone(),
-            editors: editors.clone(),
-            extends: extends.clone(),
-            name: name.clone(),
+            owner: owner.to_owned(),
+            editors: editors.to_owned(),
+            extends: extends.to_owned(),
+            name: name.to_owned(),
             permissions: permissions.clone()
         };
         let result = self.roles.insert_one(model, None).await?;
@@ -72,9 +72,9 @@ impl DbPool {
 
     pub async fn update_role(
         &self,
-        id: &String,
-        name: &String,
-        extends: &Vec<String>,
+        id: &str,
+        name: &str,
+        extends: &[String],
         editors: &Option<Vec<String>>,
         permissions: &RolePermissions
     ) -> Result<(), Error> {
@@ -91,9 +91,12 @@ impl DbPool {
                 "change_default_role": permissions.change_default_role.clone(),
                 "change_description": permissions.change_description.clone(),
                 "pin_roles": permissions.pin_roles.clone(),
-                "set_labels": permissions.set_labels.clone()
+                "set_labels": permissions.set_labels
             }
         }}, None).await?;
+        if result.modified_count == 0 {
+            return Err(Error::NotFound)
+        }
         Ok(())
     }
 }

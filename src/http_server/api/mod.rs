@@ -1,11 +1,11 @@
-use actix_web::{Scope, web::{self, Data}};
+use actix_web::{Scope, web};
 
 mod blocks;
 mod channels;
 mod users;
 mod roles;
 mod live_channel;
-pub use live_channel::State as LiveChannelState;
+pub use live_channel::{State as LiveChannelState, StateShared as LiveChannelStateShared};
 
 pub fn service() -> Scope {
     web::scope("/api")

@@ -1,4 +1,4 @@
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize}; // GROUPS ARE DEPRECATED THING
 use crate::db_pool;
 
 use super::{Error as GeneralError, extract_db, extract_auth, Session};
@@ -30,7 +30,7 @@ impl Session {
         Ok(Group::from(db_pool.get_group(id).await.map_err(GeneralError::Db)?))
     }
 
-    pub async fn create_group(&self, editors: &Vec<String>, extends: &Vec<String>, names: &Vec<String>) -> Result<String, GeneralError> {
+    pub async fn create_group(&self, editors: &[String], extends: &[String], names: &[String]) -> Result<String, GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
         db_pool.create_group(&auth.name, editors, extends, names).await.map_err(GeneralError::Db)

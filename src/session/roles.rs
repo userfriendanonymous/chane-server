@@ -3,7 +3,7 @@ use crate::db_pool::{self, RolePermissions, DbPoolGuard, Channel};
 use super::{Error as GeneralError, extract_db, extract_auth, Session};
 
 #[derive(Serialize, Deserialize)]
-struct Role {
+pub struct Role {
     pub id: String,
     pub owner: String,
     pub editors: Vec<String>,
@@ -49,7 +49,7 @@ impl Session {
         Ok(Role::from(db_pool.get_role(id).await?))
     }
 
-    pub async fn create_role(&self, name: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<String, CreateRoleError> {
+    pub async fn create_role(&self, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<String, CreateRoleError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
 
@@ -63,13 +63,13 @@ impl Session {
         Ok(db_pool.create_role(name, &auth.name, extends, editors, permissions).await?)
     }
 
-    pub async fn update_role(&self, id: &String, name: &String, extends: &Vec<String>, editors: &Vec<String>, permissions: &RolePermissions) -> Result<(), GeneralError> {
+    pub async fn update_role(&self, id: &str, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<(), GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
         let role = db_pool.get_role(id).await?;
 
         let editors = if role.owner == auth.name {
-            Some(editors.clone())
+            Some(editors.to_owned())
         } else if role.editors.contains(&auth.name) {
             None
         } else {
@@ -116,18 +116,18 @@ pub async fn resolve_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, 
     Ok((role, channel, errors))
 }
 
-pub async fn resolve_role_permissions<'g>(db_pool: &DbPoolGuard<'g>, id: &str, permissions: &RolePermissions, extends: &Vec<String>)
+pub async fn resolve_role_permissions<'g>(db_pool: &DbPoolGuard<'g>, id: &str, permissions: &RolePermissions, extends: &[String])
 -> Result<(RolePermissions, Vec<db_pool::Error>), RoleWrappedError>
 {
     let mut permissions = permissions.clone();
-    let mut role_ids = extends.clone();
+    let mut role_ids = extends.to_owned();
     let mut processed_role_ids = role_ids.clone();
     processed_role_ids.push(id.to_string());
 
     let mut errors = Vec::new();
 
     while let Some(role_id) = role_ids.last() {
-        let role = match db_pool.get_role(&role_id).await {
+        let role = match db_pool.get_role(role_id).await {
             Ok(role) => role,
             Err(error) => {
                 errors.push(error);
@@ -151,15 +151,15 @@ pub async fn resolve_role_permissions<'g>(db_pool: &DbPoolGuard<'g>, id: &str, p
 }
 
 pub async fn resolve_role<'g>(db_pool: &DbPoolGuard<'g>, id: &str) -> Result<(db_pool::Role, Vec<db_pool::Error>), RoleWrappedError> {
-    let mut role = db_pool.get_role(&id).await?;
+    let mut role = db_pool.get_role(id).await?;
     let (permissions, errors) = resolve_role_permissions(db_pool, id, &role.permissions, &role.extends).await?;
     role.permissions = permissions;
     Ok((role, errors))
 }
 
-fn catch_vec_intersection<T: PartialEq>(vec1: &Vec<T>, vec2: &Vec<T>) -> bool {
+fn catch_vec_intersection<T: PartialEq>(vec1: &Vec<T>, vec2: &[T]) -> bool {
     for item in vec1 {
-        if vec2.contains(&item) {
+        if vec2.contains(item) {
             return true
         }
     }

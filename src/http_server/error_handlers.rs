@@ -8,7 +8,7 @@ impl From<session::Error> for HttpResponse {
         match error {
             SessionError::Db(error) => match error {
                 DbError::InvalidObjectId(message) => HttpResponse::BadRequest().json(json!({
-                    "message": "invalid object id"
+                    "message": format!("invalid object id: {message}")
                 })),
                 DbError::NotFound => HttpResponse::NotFound().json(json!({
                     "message": "not found"
@@ -28,7 +28,7 @@ impl From<RoleWrappedError> for HttpResponse {
     fn from(error: RoleWrappedError) -> Self {
         match error {
             RoleWrappedError::Recursion(message) => HttpResponse::LoopDetected().json(json!({
-                "error": "Role recursion detected. Please contact us, this error should never happen..."
+                "error": format!("Role recursion detected. Please contact us, this error should never happen. {message}")
             })),
             RoleWrappedError::General(error) => error.into()
         }

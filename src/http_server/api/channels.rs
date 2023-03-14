@@ -20,7 +20,7 @@ pub async fn get_one(app_state: AppStateData, id: Path<String>) -> impl Responde
 }
 
 #[derive(Deserialize)]
-struct CreateBoby {
+pub struct CreateBoby {
     pub _type: ChannelType,
     pub description: String,
     pub default_role: String,

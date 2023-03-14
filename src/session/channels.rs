@@ -3,7 +3,7 @@ use crate::{db_pool::{self, ChannelType}, session::roles::RolePermissionValidato
 use super::{Session, Error as GeneralError, extract_auth, extract_db, roles::{resolve_user_role, RoleWrappedError}};
 
 #[derive(Serialize, Deserialize)]
-struct Channel {
+pub struct Channel {
     pub id: String,
     pub _type: ChannelType,
     pub roles: Vec<(String, String)>,
@@ -24,7 +24,7 @@ impl From<db_pool::Channel> for Channel {
 }
 
 impl Session {
-    pub async fn create_channel(&self, _type: &ChannelType, description: &String, default_role: &String, labels: &Vec<String>) -> Result<String, GeneralError> {
+    pub async fn create_channel(&self, _type: &ChannelType, description: &str, default_role: &str, labels: &[String]) -> Result<String, GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
 
@@ -77,7 +77,7 @@ impl Session {
         }
     }
 
-    pub async fn change_channel_description(&self, id: &str, description: &String) -> Result<(), RoleWrappedError> {
+    pub async fn change_channel_description(&self, id: &str, description: &str) -> Result<(), RoleWrappedError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_shared);
         let (role, channel, errors) = resolve_user_role(&db_pool, id, &auth.name).await?;
@@ -89,7 +89,7 @@ impl Session {
         }
     }
 
-    pub async fn set_channel_labels(&self, id: &str, labels: &Vec<String>) -> Result<(), RoleWrappedError> {
+    pub async fn set_channel_labels(&self, id: &str, labels: &[String]) -> Result<(), RoleWrappedError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_shared);
         let (role, channel, errors) = resolve_user_role(&db_pool, id, &auth.name).await?;

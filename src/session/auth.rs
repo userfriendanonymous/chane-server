@@ -14,7 +14,7 @@ pub enum Auth {
 }
 
 impl Auth {
-    pub fn into_result<E, Mapper>(&self, map_error: Mapper) -> Result<&AuthInfo, E>
+    pub fn as_result<E, Mapper>(&self, map_error: Mapper) -> Result<&AuthInfo, E>
     where Mapper: FnOnce(&String) -> E
     {
         match self {
@@ -73,8 +73,8 @@ impl Tokens {
 
         let access_claims = AccessClaims {
             exp,
-            key,
-            name: info.name.clone()
+            key: key.clone(),
+            name: info.name
         };
 
         let key_claims = KeyClaims {
@@ -85,10 +85,10 @@ impl Tokens {
         let header = jsonwebtoken::Header::new(Algorithm::HS512);
 
         let access_token = jsonwebtoken::encode(&header, &access_claims, &EncodingKey::from_secret(&keys.access.as_bytes()))
-        .or_else(|error| Err(error.to_string()))?;
+        .map_err(|error| error.to_string())?;
 
         let key_token = jsonwebtoken::encode(&header, &key_claims, &EncodingKey::from_secret(&keys.key.as_bytes()))
-        .or_else(|error| Err(error.to_string()))?;
+        .map_err(|error| error.to_string())?;
 
         Ok(Self {
             keys,
@@ -102,20 +102,20 @@ impl Tokens {
 
         let access_claims = match jsonwebtoken::decode::<AccessClaims>(
             &self.access,
-            &DecodingKey::from_secret(&keys.access.as_bytes()),
+            &DecodingKey::from_secret(keys.access.as_bytes()),
             &Validation::new(Algorithm::HS512)
         ) {
             Ok(claims) => claims,
-            Err(error) => return Auth::Invalid(format!("access token - {}", error.to_string()))
+            Err(error) => return Auth::Invalid(format!("access token - {error}"))
         }.claims;
 
         let key_claims = match jsonwebtoken::decode::<KeyClaims>(
             &self.key,
-            &DecodingKey::from_secret(&keys.key.as_bytes()),
+            &DecodingKey::from_secret(keys.key.as_bytes()),
             &Validation::new(Algorithm::HS512)
         ) {
             Ok(claims) => claims,
-            Err(error) => return Auth::Invalid(format!("key token - {}", error.to_string()))
+            Err(error) => return Auth::Invalid(format!("key token - {error}"))
         }.claims;
 
         if key_claims.key != access_claims.key {

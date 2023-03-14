@@ -24,12 +24,12 @@ impl DbPool {
         }
     }
 
-    pub async fn create_block(&self, content: &str, owner: &str, connected_channels: &Vec<String>) -> Result<String, Error> {
+    pub async fn create_block(&self, content: &str, owner: &str, connected_channels: &[String]) -> Result<String, Error> {
         let document = Block {
             id: None,
             content: content.to_string(),
             owner: owner.to_string(),
-            connected_channels: connected_channels.clone()
+            connected_channels: connected_channels.to_owned()
         };
         let result = self.blocks.insert_one(document, None).await?;
         Ok(result.inserted_id.to_string())

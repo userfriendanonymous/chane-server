@@ -14,7 +14,7 @@ pub fn service() -> Scope {
 #[get("/{id}")]
 pub async fn get_one(app_state: AppStateData, id: Path<String>) -> HttpResponse {
     extract_session!(app_state, session, session_shared, extract_session_gen);
-    match session.get_role(&*id).await {
+    match session.get_role(&id).await {
         Ok(role) => HttpResponse::Ok().json(role),
         Err(error) => error.into()
     }
@@ -38,7 +38,7 @@ pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> HttpResp
         Err(error) => match error {
             CreateRoleError::General(error) => error.into(),
             CreateRoleError::RoleDoesNotExist(id, error) => HttpResponse::Forbidden().json(json!({
-                "message": format!("can't extend role that doesn't exist: {}", id),
+                "message": format!("can't extend role that doesn't exist: {id}"),
                 "db_error_DEBUG_ONLY": error.to_string()
             }))
         }

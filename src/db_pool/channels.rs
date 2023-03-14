@@ -31,14 +31,14 @@ impl DbPool {
         }
     }
 
-    pub async fn create_channel(&self, _type: &ChannelType, description: &String, roles: &Vec<(String, String)>, default_role: &String, labels: &Vec<String>) -> Result<String, Error> {
+    pub async fn create_channel(&self, _type: &ChannelType, description: &str, roles: &[(String, String)], default_role: &str, labels: &[String]) -> Result<String, Error> {
         let model = Channel {
             id: None,
             _type: _type.clone(),
-            roles: roles.clone(),
-            default_role: default_role.clone(),
-            labels: labels.clone(),
-            description: description.clone(),
+            roles: roles.to_owned(),
+            default_role: default_role.to_owned(),
+            labels: labels.to_owned(),
+            description: description.to_owned(),
             pinned_block: "".to_owned()
         };
         let result = self.channels.insert_one(model, None).await?;
@@ -60,33 +60,33 @@ impl DbPool {
             }
         }, None).await?;
 
-        if result.modified_count <= 0 {
+        if result.modified_count == 0 {
             Err(Error::NotFound)
         } else {
             Ok(())
         }
     }
 
-    pub async fn change_channel_description(&self, id: &str, description: &String) -> Result<(), Error> {
+    pub async fn change_channel_description(&self, id: &str, description: &str) -> Result<(), Error> {
         let result = self.channels.update_one(doc! {"_id": as_object_id!(id)}, doc! {
             "$set": {
                 "description": description
             }
         }, None).await?;
-        if result.modified_count <= 0 {
+        if result.modified_count == 0 {
             Err(Error::NotFound)
         } else {
             Ok(())
         }
     }
 
-    pub async fn set_channel_labels(&self, id: &str, labels: &Vec<String>) -> Result<(), Error> {
+    pub async fn set_channel_labels(&self, id: &str, labels: &[String]) -> Result<(), Error> {
         let result = self.channels.update_one(doc! {"_id": as_object_id!(id)}, doc! {
             "$set": {
                 "labels": labels
             }
         }, None).await?;
-        if result.modified_count <= 0 {
+        if result.modified_count == 0 {
             Err(Error::NotFound)
         } else {
             Ok(())
