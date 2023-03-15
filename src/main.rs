@@ -1,6 +1,7 @@
 mod db_pool;
 mod http_server;
 mod session;
+mod shared;
 
 #[actix_web::main]
 async fn main() {

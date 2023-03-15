@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use tokio::sync::{Mutex, MutexGuard};
+use tokio::sync::MutexGuard;
 use mongodb::{options::ClientOptions, Client, Database, Collection};
 
 mod blocks;
@@ -45,10 +44,6 @@ pub struct DbPool {
 }
 
 impl DbPool {
-    pub async fn new_shared() -> mongodb::error::Result<DbPoolShared> {
-        Ok(Arc::new(Mutex::new(Self::new().await?)))
-    }
-
     pub async fn new() -> mongodb::error::Result<Self> {
         let client = Client::with_options(
             ClientOptions::parse("mongodb://localhost:27017").await?
@@ -65,5 +60,4 @@ impl DbPool {
     }
 }
 
-pub type DbPoolShared = Arc<Mutex<DbPool>>;
 pub type DbPoolGuard<'a> = MutexGuard<'a, DbPool>;

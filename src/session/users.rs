@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use crate::db_pool;
-use super::{Session, extract_db, Error as GeneralError};
+use super::{Session, extract_db, Error as GeneralError, LiveChannel};
 
 #[derive(Serialize, Deserialize)]
 pub struct User {
@@ -15,7 +15,7 @@ impl From<db_pool::User> for User {
     }
 }
 
-impl<LC> Session<LC> {
+impl<LC: LiveChannel> Session<LC> {
     pub async fn get_user(&self, name: &str) -> Result<User, GeneralError> {
         extract_db!(self, db_pool, db_pool_cloned);
         Ok(User::from(db_pool.get_user(name).await?))

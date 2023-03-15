@@ -70,7 +70,7 @@ impl DbPool {
         Ok(result.inserted_id.to_string())
     }
 
-    pub async fn update_role(
+    pub async fn change_role(
         &self,
         id: &str,
         name: &str,

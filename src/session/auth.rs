@@ -1,4 +1,4 @@
-use super::{Session, extract_db, Error as GeneralError};
+use super::{Session, extract_db, Error as GeneralError, LiveChannel};
 use serde::{Serialize, Deserialize};
 use jsonwebtoken::{Algorithm, EncodingKey, DecodingKey, Validation};
 use rand::Rng;
@@ -28,6 +28,7 @@ pub struct AuthInfo {
     pub name: String
 }
 
+#[derive(Serialize)]
 pub struct Tokens {
     pub access: String,
     pub key: String,
@@ -171,7 +172,7 @@ pub fn compare_password(password: &str, hash: &str) -> bool {
     bcrypt::verify(password, hash)
 }
 
-impl<LC> Session<LC> {
+impl<LC: LiveChannel> Session<LC> {
     pub async fn login(&self, name: &str, password: &str) -> Result<Tokens, LoginError> {
         let tokens = Tokens::from_auth(AuthInfo {
             name: name.to_string()

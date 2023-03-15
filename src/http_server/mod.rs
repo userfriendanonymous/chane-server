@@ -1,16 +1,17 @@
 use actix_web::{HttpServer, App, web::Data, HttpResponse};
 use serde_json::json;
-use crate::{db_pool::{DbPoolShared, DbPool}, session::SessionShared};
-pub use api::{LiveChannelStateShared, LiveChannelState};
+use crate::{db_pool::DbPool, session::Session};
+use crate::shared::Shared;
+pub use api::LiveChannel;
 
 mod api;
 mod middleware;
 mod error_handlers;
 
 pub struct AppState {
-    db_pool: DbPoolShared,
-    session: Option<SessionShared<LiveChannelState>>,
-    live_channel_state: LiveChannelStateShared
+    db_pool: Shared<DbPool>,
+    session: Option<Shared<Session<LiveChannel>>>,
+    live_channel: Shared<LiveChannel>
 }
 
 fn extract_session_gen() -> HttpResponse {
@@ -51,9 +52,9 @@ type AppStateData = Data<AppState>;
 
 pub async fn launch() -> Result<(), Error> {
     let app_state = Data::new(AppState {
-        db_pool: DbPool::new_shared().await.map_err(Error::Db)?,
+        db_pool: Shared::new(DbPool::new().await.map_err(Error::Db)?),
         session: None,
-        live_channel_state: LiveChannelState::default_shared()
+        live_channel: Shared::new(LiveChannel::default())
     });
 
     HttpServer::new(move || {

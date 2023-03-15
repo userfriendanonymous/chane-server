@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use crate::db_pool::{self, RolePermissions, DbPoolGuard, Channel};
-use super::{Error as GeneralError, extract_db, extract_auth, Session};
+use super::{Error as GeneralError, extract_db, extract_auth, Session, LiveChannel};
 
 #[derive(Serialize, Deserialize)]
 pub struct Role {
@@ -43,7 +43,7 @@ impl From<db_pool::Error> for CreateRoleError {
     }
 }
 
-impl<LC> Session<LC> {
+impl<LC: LiveChannel> Session<LC> {
     pub async fn get_role(&self, id: &str) -> Result<Role, GeneralError> {
         extract_db!(self, db_pool, db_pool_cloned);
         Ok(Role::from(db_pool.get_role(id).await?))
@@ -63,7 +63,7 @@ impl<LC> Session<LC> {
         Ok(db_pool.create_role(name, &auth.name, extends, editors, permissions).await?)
     }
 
-    pub async fn update_role(&self, id: &str, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<(), GeneralError> {
+    pub async fn change_role(&self, id: &str, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<(), GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
         let role = db_pool.get_role(id).await?;
@@ -76,7 +76,7 @@ impl<LC> Session<LC> {
             return Err(GeneralError::Unauthorized("You don't have permissions to edit this role".to_owned()))
         };
         
-        db_pool.update_role(id, name, extends, &editors, permissions).await.map_err(GeneralError::Db)
+        db_pool.change_role(id, name, extends, &editors, permissions).await.map_err(GeneralError::Db)
     }
 }
 

@@ -17,4 +17,10 @@ pub enum LiveMessage {
     },
     LabelsChanged,
     DescriptionChanged,
+    BlockPinned {
+        id: Option<String>
+    },
+    BlockChanged {
+        id: String
+    },
 }

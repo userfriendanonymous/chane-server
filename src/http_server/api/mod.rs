@@ -5,7 +5,8 @@ mod channels;
 mod users;
 mod roles;
 mod live_channel;
-pub use live_channel::{State as LiveChannelState, StateShared as LiveChannelStateShared};
+mod auth;
+pub use live_channel::State as LiveChannel;
 
 pub fn service() -> Scope {
     web::scope("/api")
@@ -13,4 +14,5 @@ pub fn service() -> Scope {
     .service(channels::service())
     .service(users::service())
     .service(roles::service())
+    .service(auth::service())
 }

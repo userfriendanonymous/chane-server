@@ -1,5 +1,5 @@
-use actix_web::{Scope, web::{self, Path, Json}, get, post, HttpResponse};
-use serde::{Serialize, Deserialize};
+use actix_web::{Scope, web::{self, Path, Json}, get, post, put, HttpResponse};
+use serde::Deserialize;
 use serde_json::json;
 use crate::{db_pool::RolePermissions, session::CreateRoleError};
 
@@ -9,6 +9,7 @@ pub fn service() -> Scope {
     web::scope("/roles")
     .service(get_one)
     .service(create)
+    .service(change)
 }
 
 #[get("/{id}")]
@@ -20,7 +21,7 @@ pub async fn get_one(app_state: AppStateData, id: Path<String>) -> HttpResponse 
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 pub struct CreateBoby {
     name: String,
     extends: Vec<String>,
@@ -42,5 +43,24 @@ pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> HttpResp
                 "db_error_DEBUG_ONLY": error.to_string()
             }))
         }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct ChangeBody {
+    name: String,
+    extends: Vec<String>,
+    editors: Vec<String>,
+    permissions: RolePermissions
+}
+
+#[put("/{id}")]
+pub async fn change(app_state: AppStateData, id: Path<String>, body: Json<ChangeBody>) -> HttpResponse {
+    extract_session!(app_state, session, session_shared, extract_session_gen);
+    match session.change_role(id.as_str(), &body.name, &body.extends, &body.editors, &body.permissions).await {
+        Ok(()) => HttpResponse::Ok().json(json!({
+            "message": "success"
+        })),
+        Err(error) => error.into()
     }
 }

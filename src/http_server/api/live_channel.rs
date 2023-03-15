@@ -60,13 +60,7 @@ impl session::LiveChannel for State {
     }
 }
 
-pub type StateShared = Arc<Mutex<State>>;
-
 impl State {
-    pub fn default_shared() -> StateShared {
-        Arc::new(Mutex::new(Self::default()))
-    }
-
     pub async fn connect(&mut self, peer: &Arc<Mutex<Peer>>, channel_id: &String){
         let mut channels = self.channels.lock().await;
         match channels.get_mut(channel_id) {
@@ -86,8 +80,8 @@ pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::P
         session: session.clone()
     }));
 
-    let chat_state = app_state.live_channel_state.clone();
-    chat_state.lock().await.connect(&peer, &"".to_string()).await;
+    let live_channel = app_state.live_channel.clone();
+    live_channel.lock().await.connect(&peer, &"".to_string()).await;
 
     actix_rt::spawn(async move {
         while let Some(Ok(message)) = message_stream.recv().await {

@@ -1,11 +1,10 @@
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use crate::db_pool::{DbPoolShared, self};
+use crate::{db_pool::{self, DbPool}, shared::Shared};
 use auth::Auth;
 use self::auth::Tokens;
 pub use roles::{RoleWrappedError, CreateRoleError};
 pub use blocks::Block;
 pub use live_channel::{LiveChannel, LiveMessage};
+pub use auth::{RegisterError, LoginError};
 
 mod auth;
 mod users;
@@ -47,26 +46,20 @@ impl From<db_pool::Error> for Error {
     }
 }
 
-pub struct Session<LC> {
-    db_pool: DbPoolShared,
-    live_channel: LC,
+pub struct Session<LC: LiveChannel> {
+    db_pool: Shared<DbPool>,
+    live_channel: Shared<LC>,
     auth_keys: auth::Keys,
     auth: Auth
 }
 
-pub type SessionShared<LC> = Arc<Mutex<Session<LC>>>;
-
 impl<LC: LiveChannel> Session<LC> {
-    pub fn new(db_pool: DbPoolShared, auth_keys: auth::Keys, tokens: Tokens, live_channel: LC) -> Self {
+    pub fn new(db_pool: Shared<DbPool>, auth_keys: auth::Keys, tokens: Tokens, live_channel: Shared<LC>) -> Self {
         Self {
             db_pool,
             auth_keys,
             auth: tokens.into_auth(),
             live_channel
         }
-    }
-
-    pub fn new_shared(db_pool: DbPoolShared, auth_keys: auth::Keys, tokens: Tokens, live_channel: LC) -> SessionShared<LC> {
-        Arc::new(Mutex::new(Self::new(db_pool, auth_keys, tokens, live_channel)))
     }
 }

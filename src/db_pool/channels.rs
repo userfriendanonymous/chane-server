@@ -80,7 +80,7 @@ impl DbPool {
         }
     }
 
-    pub async fn set_channel_labels(&self, id: &str, labels: &[String]) -> Result<(), Error> {
+    pub async fn change_channel_labels(&self, id: &str, labels: &[String]) -> Result<(), Error> {
         let result = self.channels.update_one(doc! {"_id": as_object_id!(id)}, doc! {
             "$set": {
                 "labels": labels

@@ -2,13 +2,13 @@ use std::future::{ready, Ready};
 use actix_web::{Error, dev::{Transform, forward_ready, Service, ServiceRequest, ServiceResponse}};
 use futures_util::future::LocalBoxFuture;
 
-use crate::session::{SessionShared, LiveChannel};
+use crate::{session::{Session, LiveChannel}, shared::Shared};
 
-pub struct MiddlewareFactory<LC> {
-    session: SessionShared<LC>
+pub struct MiddlewareFactory<LC: LiveChannel> {
+    session: Shared<Session<LC>>
 }
 
-impl<S, B, LC: 'static> Transform<S, ServiceRequest> for MiddlewareFactory<LC>
+impl<S, B, LC: 'static + LiveChannel> Transform<S, ServiceRequest> for MiddlewareFactory<LC>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
@@ -28,12 +28,12 @@ where
     }
 }
 
-pub struct Middleware<S, LC> {
+pub struct Middleware<S, LC: LiveChannel> {
     service: S,
-    session: SessionShared<LC>
+    session: Shared<Session<LC>>
 }
 
-impl<S, B, LC: 'static> Service<ServiceRequest> for Middleware<S, LC> // ugh need to fix thoose static
+impl<S, B, LC: 'static + LiveChannel> Service<ServiceRequest> for Middleware<S, LC> // ugh need to fix thoose static
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,

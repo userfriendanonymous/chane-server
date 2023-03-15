@@ -35,6 +35,13 @@ impl DbPool {
         Ok(result.inserted_id.to_string())
     }
 
+    pub async fn change_block(&self, id: &str, content: &str) -> Result<(), Error> {
+        let result = self.blocks.update_one(doc! {"_id": as_object_id!(id)}, doc! {"$set": {
+            "content": content
+        }}, None).await?;
+        Ok(())
+    }
+
     pub async fn connect_block_to_channel(&self, id: &str, channel_id: &str) -> Result<(), Error> {
         match self.blocks.update_one(doc! {"_id": id}, doc! {"$push": {"connected_channels": channel_id}}, None).await {
             Ok(result) => if result.modified_count > 1 {
