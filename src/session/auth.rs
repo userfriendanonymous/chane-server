@@ -28,7 +28,6 @@ pub struct AuthInfo {
     pub name: String
 }
 
-#[derive(Serialize)]
 pub struct Tokens {
     pub access: String,
     pub key: String,
@@ -85,10 +84,10 @@ impl Tokens {
 
         let header = jsonwebtoken::Header::new(Algorithm::HS512);
 
-        let access_token = jsonwebtoken::encode(&header, &access_claims, &EncodingKey::from_secret(&keys.access.as_bytes()))
+        let access_token = jsonwebtoken::encode(&header, &access_claims, &EncodingKey::from_secret(keys.access.as_bytes()))
         .map_err(|error| error.to_string())?;
 
-        let key_token = jsonwebtoken::encode(&header, &key_claims, &EncodingKey::from_secret(&keys.key.as_bytes()))
+        let key_token = jsonwebtoken::encode(&header, &key_claims, &EncodingKey::from_secret(keys.key.as_bytes()))
         .map_err(|error| error.to_string())?;
 
         Ok(Self {
