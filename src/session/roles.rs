@@ -101,7 +101,7 @@ impl From<db_pool::Error> for RoleWrappedError {
 }
 
 pub async fn resolve_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, user_name: &str)
--> Result<(db_pool::Role, Channel, Vec<db_pool::Error>), RoleWrappedError>
+-> Result<(db_pool::Role, Channel), RoleWrappedError>
 {
     let channel = db_pool.get_channel(channel_id).await?;
 
@@ -112,28 +112,20 @@ pub async fn resolve_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, 
             break;
         }
     }
-    let (role, errors) = resolve_role(db_pool, role_id.as_str()).await?;
-    Ok((role, channel, errors))
+    let role = resolve_role(db_pool, role_id.as_str()).await?;
+    Ok((role, channel))
 }
 
 pub async fn resolve_role_permissions<'g>(db_pool: &DbPoolGuard<'g>, id: &str, permissions: &RolePermissions, extends: &[String])
--> Result<(RolePermissions, Vec<db_pool::Error>), RoleWrappedError>
+-> Result<RolePermissions, RoleWrappedError>
 {
     let mut permissions = permissions.clone();
     let mut role_ids = extends.to_owned();
     let mut processed_role_ids = role_ids.clone();
     processed_role_ids.push(id.to_string());
 
-    let mut errors = Vec::new();
-
     while let Some(role_id) = role_ids.last() {
-        let role = match db_pool.get_role(role_id).await {
-            Ok(role) => role,
-            Err(error) => {
-                errors.push(error);
-                break;
-            }
-        };
+        let role = db_pool.get_role(role_id).await?;
 
         permissions.add(&role.permissions);
 
@@ -147,14 +139,14 @@ pub async fn resolve_role_permissions<'g>(db_pool: &DbPoolGuard<'g>, id: &str, p
         }
     }
 
-    Ok((permissions, errors))
+    Ok(permissions)
 }
 
-pub async fn resolve_role<'g>(db_pool: &DbPoolGuard<'g>, id: &str) -> Result<(db_pool::Role, Vec<db_pool::Error>), RoleWrappedError> {
+pub async fn resolve_role<'g>(db_pool: &DbPoolGuard<'g>, id: &str) -> Result<db_pool::Role, RoleWrappedError> {
     let mut role = db_pool.get_role(id).await?;
-    let (permissions, errors) = resolve_role_permissions(db_pool, id, &role.permissions, &role.extends).await?;
+    let permissions = resolve_role_permissions(db_pool, id, &role.permissions, &role.extends).await?;
     role.permissions = permissions;
-    Ok((role, errors))
+    Ok(role)
 }
 
 fn catch_vec_intersection<T: PartialEq>(vec1: &Vec<T>, vec2: &[T]) -> bool {

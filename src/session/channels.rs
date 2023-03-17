@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::{db_pool::{self, ChannelType}, session::{roles::RolePermissionValidator, LiveMessage}};
+use crate::{db_pool::{self, ChannelType}, session::{roles::RolePermissionValidator, LiveMessage, Block}};
 use super::{Session, Error as GeneralError, extract_auth, extract_db, roles::{resolve_user_role, RoleWrappedError}, LiveChannel};
 
 #[derive(Serialize, Deserialize)]
@@ -41,7 +41,7 @@ impl<LC: LiveChannel> Session<LC> {
         let auth = extract_auth!(self, GeneralError::Unauthorized, RoleWrappedError::General);
         extract_db!(self, db_pool, db_pool_cloned);
         
-        let (role, channel, errors) = resolve_user_role(&db_pool, id, &auth.name).await?;
+        let (role, channel) = resolve_user_role(&db_pool, id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
 
         if validator.can_connect_blocks() {
@@ -58,7 +58,7 @@ impl<LC: LiveChannel> Session<LC> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_cloned);
         
-        let (role, channel, errors) = resolve_user_role(&db_pool, id, &auth.name).await?;
+        let (role, channel) = resolve_user_role(&db_pool, id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
 
         if validator.can_disconnect_blocks() {
@@ -74,7 +74,7 @@ impl<LC: LiveChannel> Session<LC> {
     pub async fn pin_channel_block(&self, id: &str, block_id: &Option<String>) -> Result<(), RoleWrappedError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_shared);
-        let (role, channel, errors) = resolve_user_role(&db_pool, id, &auth.name).await?;
+        let (role, channel) = resolve_user_role(&db_pool, id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
 
         if validator.can_pin_block() {
@@ -90,7 +90,7 @@ impl<LC: LiveChannel> Session<LC> {
     pub async fn change_channel_description(&self, id: &str, description: &str) -> Result<(), RoleWrappedError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_shared);
-        let (role, channel, errors) = resolve_user_role(&db_pool, id, &auth.name).await?;
+        let (role, channel) = resolve_user_role(&db_pool, id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
         if validator.can_change_description() {
             db_pool.change_channel_description(id, description).await?;
@@ -105,7 +105,7 @@ impl<LC: LiveChannel> Session<LC> {
     pub async fn change_channel_labels(&self, id: &str, labels: &[String]) -> Result<(), RoleWrappedError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
         extract_db!(self, db_pool, db_pool_shared);
-        let (role, channel, errors) = resolve_user_role(&db_pool, id, &auth.name).await?;
+        let (role, channel) = resolve_user_role(&db_pool, id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
         if validator.can_set_labels() {
             db_pool.change_channel_labels(id, labels).await?;
@@ -114,6 +114,25 @@ impl<LC: LiveChannel> Session<LC> {
             Ok(())
         } else {
             Err(GeneralError::Unauthorized("you don't have permissions to set channel labels".to_owned()).into())
+        }
+    }
+
+    pub async fn get_channel_blocks(&self, id: &str, limit: &Option<i64>, offset: &Option<u64>) -> Result<(Vec<Block>, Vec<mongodb::error::Error>), RoleWrappedError> {
+        let auth = extract_auth!(self, GeneralError::Unauthorized);
+        extract_db!(self, db_pool, db_pool_shared);
+        let (role, channel) = resolve_user_role(&db_pool, id, &auth.name).await?;
+        let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
+
+        if validator.can_view_blocks() {
+            let (db_blocks, blocks_errors) = db_pool.get_channel_blocks(id, limit, offset).await?;
+            let mut blocks = Vec::new();
+            for block in db_blocks {
+                blocks.push(Block::from(block));
+            }
+            Ok((blocks, blocks_errors))
+            
+        } else {
+            Err(GeneralError::Unauthorized("you don't have permissions to view blocks of this channel".to_owned()).into())
         }
     }
 }

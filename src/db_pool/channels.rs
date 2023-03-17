@@ -17,8 +17,10 @@ pub struct Channel {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ChannelType {
-    ServerHosted = 0,
-    Ghosted = 1,
+    #[serde(rename = "server_hosted")]
+    ServerHosted,
+    #[serde(rename = "ghosted")]
+    Ghosted,
 }
 
 impl DbPool {
