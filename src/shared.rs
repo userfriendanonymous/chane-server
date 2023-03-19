@@ -11,11 +11,13 @@ impl<T> Shared<T> {
         Self(Arc::new(Mutex::new(data)))
     }
 
-    pub fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-
     pub async fn lock(&self) -> MutexGuard<T> {
         self.0.lock().await
+    }
+}
+
+impl<T> Clone for Shared<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
     }
 }

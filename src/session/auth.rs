@@ -10,7 +10,7 @@ pub enum Auth {
     Valid {
         info: AuthInfo
     },
-    Invalid(String)
+    Invalid(String),
 }
 
 impl Auth {
@@ -31,7 +31,6 @@ pub struct AuthInfo {
 pub struct Tokens {
     pub access: String,
     pub key: String,
-    keys: Keys
 }
 
 #[derive(Clone)]
@@ -54,11 +53,10 @@ pub struct KeyClaims {
 }
 
 impl Tokens {
-    pub fn new(access: String, key: String, keys: Keys) -> Self {
+    pub fn new(access: String, key: String) -> Self {
         Self {
             access,
             key,
-            keys
         }
     }
 
@@ -91,15 +89,12 @@ impl Tokens {
         .map_err(|error| error.to_string())?;
 
         Ok(Self {
-            keys,
             access: access_token,
             key: key_token
         })
     }
 
-    pub fn into_auth(self) -> Auth {
-        let keys = self.keys;
-
+    pub fn into_auth(self, keys: Keys) -> Auth {
         let access_claims = match jsonwebtoken::decode::<AccessClaims>(
             &self.access,
             &DecodingKey::from_secret(keys.access.as_bytes()),

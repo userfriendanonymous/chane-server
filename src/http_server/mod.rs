@@ -1,5 +1,6 @@
 use actix_web::{HttpServer, App, web::Data, HttpResponse};
 use serde_json::json;
+use actix_cors::Cors;
 use crate::{db_pool::DbPool, session::Session};
 use crate::shared::Shared;
 pub use api::LiveChannel;
@@ -10,7 +11,7 @@ mod error_handlers;
 
 pub struct AppState {
     db_pool: Shared<DbPool>,
-    session: Option<Shared<Session<LiveChannel>>>,
+    session: Shared<Option<Session<LiveChannel>>>,
     live_channel: Shared<LiveChannel>
 }
 
@@ -21,13 +22,13 @@ fn extract_session_gen() -> HttpResponse {
 }
 
 macro_rules! extract_session {
-    ($app_state:expr, $session:ident, $session_cloned:ident, $gen:ident) => {
-        let $session_cloned = match &$app_state.session {
-            Some(session) => session.clone(),
+    ($app_state:expr, $session:ident, $gen:ident) => {
+        let $session = $app_state.session.clone();
+        let $session = &*$session.lock().await; // shadow like a pro
+        let $session = match $session {
+            Some(session) => session,
             None => return $gen()
         };
-
-        let $session = $session_cloned.lock().await;
     };
 }
 pub(self) use extract_session;
@@ -51,14 +52,27 @@ impl From<std::io::Error> for Error {
 type AppStateData = Data<AppState>;
 
 pub async fn launch() -> Result<(), Error> {
+    let session = Shared::new(None);
+    let db_pool = Shared::new(DbPool::new().await.map_err(Error::Db)?);
+    let live_channel = Shared::new(LiveChannel::default());
+
     let app_state = Data::new(AppState {
-        db_pool: Shared::new(DbPool::new().await.map_err(Error::Db)?),
-        session: None,
-        live_channel: Shared::new(LiveChannel::default())
+        db_pool: db_pool.clone(),
+        session: session.clone(),
+        live_channel: live_channel.clone()
     });
 
     HttpServer::new(move || {
         App::new()
+        .wrap(
+            Cors::permissive()
+        )
+        .wrap(middleware::session::MiddlewareFactory {
+            session: session.clone(),
+            auth_keys: crate::session::AuthKeys { access: "".to_owned(), key: "".to_owned() },
+            db_pool: db_pool.clone(),
+            live_channel: live_channel.clone()
+        })
         .app_data(app_state.clone())
         .service(api::service())
     })

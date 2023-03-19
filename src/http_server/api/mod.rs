@@ -15,4 +15,5 @@ pub fn service() -> Scope {
     .service(users::service())
     .service(roles::service())
     .service(auth::service())
+    .service(live_channel::service)
 }

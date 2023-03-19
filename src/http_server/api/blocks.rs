@@ -12,7 +12,7 @@ pub fn service() -> Scope {
 
 #[get("/{id}")]
 async fn get_one(app_state: AppStateData, id: Path<String>) -> impl Responder {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.get_block(id.as_str()).await {
         Ok(block) => HttpResponse::Ok().json(block),
         Err(error) => HttpResponse::from(error)
@@ -26,7 +26,7 @@ pub struct CreateBody {
 
 #[post("/")]
 async fn create(app_state: AppStateData, body: Json<CreateBody>) -> impl Responder {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.create_block(body.content.as_str()).await {
         Ok(id) => HttpResponse::Ok().json(json!({"id": id})),
         Err(error) => HttpResponse::from(error)
@@ -40,7 +40,7 @@ pub struct ChangeBody {
 
 #[post("/{id}")]
 async fn change(app_state: AppStateData, id: Path<String>, body: Json<CreateBody>) -> impl Responder {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.change_block(id.as_str(), body.content.as_str()).await {
         Ok(()) => HttpResponse::Ok().json(json!({"message": "success"})),
         Err(error) => HttpResponse::from(error)

@@ -18,7 +18,7 @@ pub struct RegisterBody {
 
 #[post("/register")]
 pub async fn register(app_state: AppStateData, body: Json<RegisterBody>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.register(&body.name, &body.email, &body.password).await {
         Ok(tokens) => HttpResponse::Created()
         .cookie(
@@ -43,7 +43,7 @@ pub struct LoginBody {
 
 #[post("/login")]
 pub async fn login(app_state: AppStateData, body: Json<LoginBody>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.login(&body.name, &body.password).await {
         Ok(tokens) => HttpResponse::Ok()
         .cookie(

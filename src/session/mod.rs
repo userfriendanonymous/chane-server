@@ -4,7 +4,7 @@ use self::auth::Tokens;
 pub use roles::{RoleWrappedError, CreateRoleError};
 pub use blocks::Block;
 pub use live_channel::{LiveChannel, LiveMessage};
-pub use auth::{RegisterError, LoginError};
+pub use auth::{RegisterError, LoginError, Keys as AuthKeys, Tokens as AuthTokens};
 
 mod auth;
 mod users;
@@ -58,7 +58,7 @@ impl<LC: LiveChannel> Session<LC> {
         Self {
             db_pool,
             auth_keys,
-            auth: tokens.into_auth(),
+            auth: tokens.into_auth(auth_keys),
             live_channel
         }
     }

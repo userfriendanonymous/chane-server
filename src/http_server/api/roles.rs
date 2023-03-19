@@ -14,7 +14,7 @@ pub fn service() -> Scope {
 
 #[get("/{id}")]
 pub async fn get_one(app_state: AppStateData, id: Path<String>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.get_role(&id).await {
         Ok(role) => HttpResponse::Ok().json(role),
         Err(error) => error.into()
@@ -31,7 +31,7 @@ pub struct CreateBoby {
 
 #[post("/")]
 pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.create_role(&body.name, &body.extends, &body.editors, &body.permissions).await {
         Ok(id) => HttpResponse::Created().json(json!({
             "id": id
@@ -56,7 +56,7 @@ pub struct ChangeBody {
 
 #[put("/{id}")]
 pub async fn change(app_state: AppStateData, id: Path<String>, body: Json<ChangeBody>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.change_role(id.as_str(), &body.name, &body.extends, &body.editors, &body.permissions).await {
         Ok(()) => HttpResponse::Ok().json(json!({
             "message": "success"

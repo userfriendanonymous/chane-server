@@ -72,7 +72,7 @@ impl State {
     }
 }
 
-#[get("/chat")]
+#[get("/live")]
 pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     let (response, session, mut message_stream) = actix_ws::handle(&request, body)?;
 

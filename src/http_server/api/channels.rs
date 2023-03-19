@@ -18,7 +18,7 @@ pub fn service() -> Scope {
 
 #[get("/{id}")]
 pub async fn get_one(app_state: AppStateData, id: Path<String>) -> impl Responder {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.get_channel(id.as_str()).await {
         Ok(channel) => HttpResponse::Ok().json(channel),
         Err(error) => error.into()
@@ -35,7 +35,7 @@ pub struct CreateBoby {
 
 #[post("/")]
 pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.create_channel(&body._type, &body.description, &body.default_role, &body.labels).await {
         Ok(id) => HttpResponse::Created().json(json!({"id": id})),
         Err(error) => HttpResponse::from(error)
@@ -49,7 +49,7 @@ pub struct ConnectBlockBody {
 
 #[put("/{id}/connect-block")]
 pub async fn connect_block(app_state: AppStateData, id: Path<String>, body: Json<ConnectBlockBody>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.connect_block_to_channel(id.as_str(), &body.id).await {
         Ok(()) => HttpResponse::Ok().json(json!({
             "message": "success"
@@ -65,7 +65,7 @@ pub struct DisconnectBlockBody {
 
 #[put("/{id}/disconnect-block")]
 pub async fn disconnect_block(app_state: AppStateData, id: Path<String>, body: Json<DisconnectBlockBody>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.disconnect_block_from_channel(id.as_str(), &body.id).await {
         Ok(()) => HttpResponse::Ok().json(json!({
             "message": "success"
@@ -81,7 +81,7 @@ pub struct PinBlockBody {
 
 #[put("/{id}/pin")]
 pub async fn pin_block(app_state: AppStateData, id: Path<String>, body: Json<PinBlockBody>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.pin_channel_block(id.as_str(), &body.id).await {
         Ok(()) => HttpResponse::Ok().json(json!({
             "message": "success"
@@ -98,7 +98,7 @@ pub struct ChangeDescriptionBody {
 
 #[put("/{id}/description")]
 pub async fn change_description(app_state: AppStateData, id: Path<String>, body: Json<ChangeDescriptionBody>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.change_channel_description(id.as_str(), body.content.as_str()).await {
         Ok(()) => HttpResponse::Ok().json(json!({
             "message": "success"
@@ -114,7 +114,7 @@ pub struct ChangeLabelsBody {
 
 #[put("/{id}/labels")]
 pub async fn change_labels(app_state: AppStateData, id: Path<String>, body: Json<ChangeLabelsBody>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.change_channel_labels(id.as_str(), &body.labels).await {
         Ok(()) => HttpResponse::Ok().json(json!({
             "message": "success"
@@ -131,7 +131,7 @@ pub struct GetChannelBlocksQuery {
 
 #[get("/{id}/blocks")]
 pub async fn get_channel_blocks(app_state: AppStateData, id: Path<String>, query: Query<GetChannelBlocksQuery>) -> HttpResponse {
-    extract_session!(app_state, session, session_shared, extract_session_gen);
+    extract_session!(app_state, session, extract_session_gen);
     match session.get_channel_blocks(&id, &query.limit, &query.offset).await {
         Ok((blocks, errors)) => {
             println!("ERRORS: {errors:?}");
