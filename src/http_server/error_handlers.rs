@@ -14,11 +14,14 @@ impl From<session::Error> for HttpResponse {
                     "message": "not found"
                 })),
                 DbError::Query(error) => HttpResponse::InternalServerError().json(json!({
-                    "db query error": error.to_string()
+                    "message": error.to_string()
                 })),
+                DbError::BsonSerialization(error) => HttpResponse::InternalServerError().json(json!({
+                    "message": error.to_string()
+                }))
             },
             SessionError::Unauthorized(message) => HttpResponse::Unauthorized().json(json!({
-                "unauthorized": message
+                "message": message
             }))
         }
     }
@@ -28,7 +31,7 @@ impl From<RoleWrappedError> for HttpResponse {
     fn from(error: RoleWrappedError) -> Self {
         match error {
             RoleWrappedError::Recursion(message) => HttpResponse::LoopDetected().json(json!({
-                "error": format!("Role recursion detected. Please contact us, this error should never happen. {message}")
+                "message": format!("Role recursion detected. Please contact us, this error should never happen. {message}")
             })),
             RoleWrappedError::General(error) => error.into()
         }

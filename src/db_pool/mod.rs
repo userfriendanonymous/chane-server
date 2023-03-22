@@ -1,17 +1,19 @@
 use tokio::sync::MutexGuard;
 use mongodb::{options::ClientOptions, Client, Database, Collection};
 
+pub use users::User;
+pub use channels::{Channel, ChannelType};
+pub use blocks::Block;
+pub use roles::{Role, RolePermissions};
+pub use activity_table::{ActivityTable, Activity};
+
 mod blocks;
 mod channels;
 mod users;
 mod utils;
 mod groups;
 mod roles;
-
-pub use users::User;
-pub use channels::{Channel, ChannelType};
-pub use blocks::Block;
-pub use roles::{Role, RolePermissions};
+mod activity_table;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -21,6 +23,14 @@ pub enum Error {
     InvalidObjectId(mongodb::bson::oid::Error),
     #[error("not found")]
     NotFound,
+    #[error("serialization error: {0}")]
+    BsonSerialization(mongodb::bson::ser::Error)
+}
+
+impl From<mongodb::bson::ser::Error> for Error {
+    fn from(value: mongodb::bson::ser::Error) -> Self {
+        Self::BsonSerialization(value)
+    }
 }
 
 impl From<mongodb::error::Error> for Error {
@@ -40,7 +50,8 @@ pub struct DbPool {
     blocks: Collection<Block>,
     users: Collection<User>,
     roles: Collection<Role>,
-    channels: Collection<Channel>
+    channels: Collection<Channel>,
+    activity_tables: Collection<ActivityTable>,
 }
 
 impl DbPool {
@@ -55,6 +66,7 @@ impl DbPool {
             users: db.collection("users"),
             roles: db.collection("roles"),
             channels: db.collection("channels"),
+            activity_tables: db.collection("activity_tables"),
             db
         })
     }

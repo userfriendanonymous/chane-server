@@ -17,7 +17,7 @@ impl From<db_pool::User> for User {
 
 impl<LC: LiveChannel> Session<LC> {
     pub async fn get_user(&self, name: &str) -> Result<User, GeneralError> {
-        extract_db!(self, db_pool, db_pool_cloned);
+        let db_pool = self.db_pool();
         Ok(User::from(db_pool.get_user(name).await?))
     }
 }

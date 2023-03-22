@@ -1,6 +1,7 @@
 use crate::{db_pool::{self, DbPool}, shared::Shared};
 use auth::Auth;
-use self::auth::Tokens;
+use self::auth::{Tokens, AuthInfo};
+use std::sync::Arc;
 pub use roles::{RoleWrappedError, CreateRoleError};
 pub use blocks::Block;
 pub use live_channel::{LiveChannel, LiveMessage};
@@ -47,19 +48,31 @@ impl From<db_pool::Error> for Error {
 }
 
 pub struct Session<LC: LiveChannel> {
-    db_pool: Shared<DbPool>,
+    db_pool: Arc<DbPool>,
     live_channel: Shared<LC>,
     auth_keys: auth::Keys,
     auth: Auth
 }
 
 impl<LC: LiveChannel> Session<LC> {
-    pub fn new(db_pool: Shared<DbPool>, auth_keys: auth::Keys, tokens: Tokens, live_channel: Shared<LC>) -> Self {
+    pub fn new(db_pool: Arc<DbPool>, auth_keys: auth::Keys, tokens: Tokens, live_channel: Shared<LC>) -> Self {
         Self {
             db_pool,
-            auth_keys,
+            auth_keys: auth_keys.clone(),
             auth: tokens.into_auth(auth_keys),
             live_channel
         }
+    }
+
+    fn db_pool(&self) -> Arc<DbPool> {
+        self.db_pool.clone()
+    }
+
+    fn auth(&self) -> Result<&AuthInfo, Error> {
+        self.auth.as_result().map_err(Error::Unauthorized)
+    }
+
+    fn auth_and_db(&self) -> Result<(Arc<DbPool>, &AuthInfo), Error> {
+        Ok((self.db_pool(), self.auth()?))
     }
 }

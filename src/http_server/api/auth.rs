@@ -1,33 +1,42 @@
-use actix_web::{Scope, web::{self, Json}, post, HttpResponse, cookie::CookieBuilder};
+use actix_web::{Scope, web::{self, Json}, post, get, HttpResponse, cookie::{CookieBuilder, Cookie}, HttpRequest};
 use serde::Deserialize;
 use serde_json::json;
 use crate::http_server::{AppStateData, extract_session, extract_session_gen};
 
 pub fn service() -> Scope {
     web::scope("/auth")
-    .service(register)
+    .service(join)
     .service(login)
+    .service(me)
 }
 
 #[derive(Deserialize)]
-pub struct RegisterBody {
+pub struct JoinBody {
     pub name: String,
     pub email: String,
     pub password: String,
 }
 
-#[post("/register")]
-pub async fn register(app_state: AppStateData, body: Json<RegisterBody>) -> HttpResponse {
+#[get("/me")]
+pub async fn me(app_state: AppStateData) -> HttpResponse {
+    extract_session!(app_state, session, extract_session_gen);
+    HttpResponse::Ok().json(session.me().await)
+}
+
+#[post("/join")]
+pub async fn join(app_state: AppStateData, body: Json<JoinBody>, request: HttpRequest) -> HttpResponse {
     extract_session!(app_state, session, extract_session_gen);
     match session.register(&body.name, &body.email, &body.password).await {
         Ok(tokens) => HttpResponse::Created()
         .cookie(
-            CookieBuilder::new("access-token", tokens.access)
+            Cookie::build("access-token", tokens.access)
             .http_only(true)
+            .same_site(actix_web::cookie::SameSite::None)
             .finish()
         )
         .cookie(
-            CookieBuilder::new("key-token", tokens.key)
+            Cookie::build("key-token", tokens.key)
+            .same_site(actix_web::cookie::SameSite::None)
             .finish()
         )
         .json(json!({"message": "success"})),
@@ -56,6 +65,7 @@ pub async fn login(app_state: AppStateData, body: Json<LoginBody>) -> HttpRespon
             .finish()
         )
         .json(json!({"message": "success"})),
+        
         Err(error) => error.into()
     }
 }

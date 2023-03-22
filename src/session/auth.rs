@@ -1,3 +1,5 @@
+use crate::db_pool::{self, Activity};
+
 use super::{Session, extract_db, Error as GeneralError, LiveChannel};
 use serde::{Serialize, Deserialize};
 use jsonwebtoken::{Algorithm, EncodingKey, DecodingKey, Validation};
@@ -14,18 +16,39 @@ pub enum Auth {
 }
 
 impl Auth {
-    pub fn as_result<E, Mapper>(&self, map_error: Mapper) -> Result<&AuthInfo, E>
-    where Mapper: FnOnce(&String) -> E
+    pub fn as_result(&self) -> Result<&AuthInfo, String>
     {
         match self {
             Auth::Valid { info } => Ok(info),
-            Auth::Invalid(reason) => Err(map_error(reason))
+            Auth::Invalid(reason) => Err(reason.clone())
         }
     }
 }
 
+#[derive(Serialize)]
+#[serde(tag = "is", content = "data", rename = "snake_case")]
+pub enum AuthPublic {
+    Valid {
+        name: String
+    },
+    Invalid {
+        reason: String
+    }
+}
+
+impl AuthPublic {
+    pub fn from_auth(auth: &Auth) -> Self {
+        match auth {
+            Auth::Valid { ref info } => Self::Valid { name: info.name.clone() },
+            Auth::Invalid(ref reason) => Self::Invalid { reason: reason.clone() }
+        }
+    }
+}
+
+
 pub struct AuthInfo {
-    pub name: String
+    pub name: String,
+    pub activity_table_id: String
 }
 
 pub struct Tokens {
@@ -33,7 +56,7 @@ pub struct Tokens {
     pub key: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Keys {
     pub access: String,
     pub key: String
@@ -42,6 +65,7 @@ pub struct Keys {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccessClaims {
     pub name: String,
+    pub activity_table_id: String,
     pub key: String,
     pub exp: usize,
 }
@@ -72,7 +96,8 @@ impl Tokens {
         let access_claims = AccessClaims {
             exp,
             key: key.clone(),
-            name: info.name
+            name: info.name,
+            activity_table_id: info.activity_table_id
         };
 
         let key_claims = KeyClaims {
@@ -95,6 +120,11 @@ impl Tokens {
     }
 
     pub fn into_auth(self, keys: Keys) -> Auth {
+        return Auth::Valid { info: AuthInfo { // to be removed!
+            name: "epicuser".to_string(),
+            activity_table_id: "???".to_string()
+        }};
+
         let access_claims = match jsonwebtoken::decode::<AccessClaims>(
             &self.access,
             &DecodingKey::from_secret(keys.access.as_bytes()),
@@ -119,7 +149,8 @@ impl Tokens {
 
         Auth::Valid {
             info: AuthInfo {
-                name: access_claims.name
+                name: access_claims.name,
+                activity_table_id: access_claims.activity_table_id
             }
         }
     }
@@ -147,6 +178,12 @@ pub enum RegisterError {
     Hashing(String)
 }
 
+impl From<db_pool::Error> for RegisterError {
+    fn from(value: db_pool::Error) -> Self {
+        Self::General(GeneralError::Db(value))
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum LoginError {
     #[error("failed to generate tokens: {0}")]
@@ -155,6 +192,12 @@ pub enum LoginError {
     General(GeneralError),
     #[error("invalid credentials")]
     InvalidCredentials
+}
+
+impl From<db_pool::Error> for LoginError {
+    fn from(value: db_pool::Error) -> Self {
+        Self::General(GeneralError::Db(value))
+    }
 }
 
 fn hash_password(password: &str) -> Result<String, String> {
@@ -167,17 +210,24 @@ pub fn compare_password(password: &str, hash: &str) -> bool {
 }
 
 impl<LC: LiveChannel> Session<LC> {
-    pub async fn login(&self, name: &str, password: &str) -> Result<Tokens, LoginError> {
-        let tokens = Tokens::from_auth(AuthInfo {
-            name: name.to_string()
-        }, self.auth_keys.clone()).map_err(LoginError::TokenGenerationFailed)?;
+    pub async fn me(&self) -> AuthPublic {
+        AuthPublic::from_auth(&self.auth)
+    }
 
+    pub async fn login(&self, name: &str, password: &str) -> Result<Tokens, LoginError> {
         extract_db!(self, db_pool, db_pool_cloned);
 
-        let user = db_pool.get_user(name).await.map_err(|error| LoginError::General(GeneralError::Db(error)))?;
+        let user = db_pool.get_user(name).await?;
         if !compare_password(password, user.password_hash.as_str()) {
             return Err(LoginError::InvalidCredentials);
         }
+
+        let tokens = Tokens::from_auth(AuthInfo {
+            name: name.to_string(),
+            activity_table_id: user.activity_table
+        }, self.auth_keys.clone()).map_err(LoginError::TokenGenerationFailed)?;
+
+        println!("success???");
 
         Ok(tokens)
     }
@@ -199,7 +249,7 @@ impl<LC: LiveChannel> Session<LC> {
         }
 
         extract_db!(self, db_pool, db_pool_cloned);
-        let uniqueness = db_pool.check_if_unique_credentials(name, email).await.map_err(|error| RegisterError::General(GeneralError::Db(error)))?;
+        let uniqueness = db_pool.check_if_unique_credentials(name, email).await?;
         if !uniqueness.email {
             return Err(RegisterError::EmailTaken);
         }
@@ -207,12 +257,20 @@ impl<LC: LiveChannel> Session<LC> {
             return Err(RegisterError::NameTaken);
         }
 
+        let password_hash = hash_password(password).map_err(RegisterError::Hashing)?;
+
+        let activities = vec![
+            Activity::UserJoined { name: name.to_string() }
+        ];
+
+        let activity_table_id = db_pool.create_activity_table(&activities).await?;
+
         let tokens = Tokens::from_auth(AuthInfo {
-            name: name.to_string()
+            name: name.to_string(),
+            activity_table_id: activity_table_id.clone()
         }, self.auth_keys.clone()).map_err(RegisterError::TokenGenerationFailed)?;
 
-        let password_hash = hash_password(password).map_err(RegisterError::Hashing)?;
-        db_pool.create_user(name, email, password_hash.as_str()).await.map_err(|error| RegisterError::General(GeneralError::Db(error)))?;
+        db_pool.create_user(name, email, password_hash.as_str(), &activity_table_id).await?;
 
         Ok(tokens)
     }

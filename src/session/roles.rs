@@ -1,5 +1,7 @@
+use std::sync::Arc;
+
 use serde::{Serialize, Deserialize};
-use crate::db_pool::{self, RolePermissions, DbPoolGuard, Channel};
+use crate::db_pool::{self, RolePermissions, Channel, DbPool};
 use super::{Error as GeneralError, extract_db, extract_auth, Session, LiveChannel};
 
 #[derive(Serialize, Deserialize)]
@@ -45,13 +47,13 @@ impl From<db_pool::Error> for CreateRoleError {
 
 impl<LC: LiveChannel> Session<LC> {
     pub async fn get_role(&self, id: &str) -> Result<Role, GeneralError> {
-        extract_db!(self, db_pool, db_pool_cloned);
+        let db_pool = self.db_pool();
         Ok(Role::from(db_pool.get_role(id).await?))
     }
 
     pub async fn create_role(&self, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<String, CreateRoleError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
-        extract_db!(self, db_pool, db_pool_cloned);
+        let db_pool = self.db_pool();
 
         for role_id in extends { // validates that all extending roles exist to avoid stuff like recursion to itself
             match db_pool.get_role(role_id).await {
@@ -100,7 +102,7 @@ impl From<db_pool::Error> for RoleWrappedError {
     }
 }
 
-pub async fn resolve_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, user_name: &str)
+pub async fn resolve_user_role(db_pool: Arc<DbPool>, channel_id: &str, user_name: &str)
 -> Result<(db_pool::Role, Channel), RoleWrappedError>
 {
     let channel = db_pool.get_channel(channel_id).await?;
@@ -116,7 +118,7 @@ pub async fn resolve_user_role<'g>(db_pool: &DbPoolGuard<'g>, channel_id: &str, 
     Ok((role, channel))
 }
 
-pub async fn resolve_role_permissions<'g>(db_pool: &DbPoolGuard<'g>, id: &str, permissions: &RolePermissions, extends: &[String])
+pub async fn resolve_role_permissions(db_pool: Arc<DbPool>, id: &str, permissions: &RolePermissions, extends: &[String])
 -> Result<RolePermissions, RoleWrappedError>
 {
     let mut permissions = permissions.clone();
@@ -142,7 +144,7 @@ pub async fn resolve_role_permissions<'g>(db_pool: &DbPoolGuard<'g>, id: &str, p
     Ok(permissions)
 }
 
-pub async fn resolve_role<'g>(db_pool: &DbPoolGuard<'g>, id: &str) -> Result<db_pool::Role, RoleWrappedError> {
+pub async fn resolve_role(db_pool: Arc<DbPool>, id: &str) -> Result<db_pool::Role, RoleWrappedError> {
     let mut role = db_pool.get_role(id).await?;
     let permissions = resolve_role_permissions(db_pool, id, &role.permissions, &role.extends).await?;
     role.permissions = permissions;

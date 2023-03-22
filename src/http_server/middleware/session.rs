@@ -56,21 +56,34 @@ where
     forward_ready!(service);
 
     fn call(&self, request: ServiceRequest) -> Self::Future {
-        println!("middleware: {}", request.path());
-        let future = self.service.call(request);
+        println!("request: {}", request.path());
 
         let session = self.session.clone();
         let auth_keys = self.auth_keys.clone();
         let db_pool = self.db_pool.clone();
         let live_channel = self.live_channel.clone();
 
+        let tokens = AuthTokens::new(
+            extract_cookie_as_string(&request, "access-token"),
+            extract_cookie_as_string(&request, "key-token")
+        );
+        
+        let future = self.service.call(request);
+
         Box::pin(async move {
             let mut session = session.lock().await;
-            *session = Some(Session::new(db_pool, auth_keys, AuthTokens::new("".to_owned(), "".to_owned()), live_channel));
+            *session = Some(Session::new(db_pool, auth_keys, tokens, live_channel));
+            drop(session); // oh wow! required to explicity drop rwlockguard or else it will never release and program will be stuck!
             
             let response = future.await?;
-            println!("response");
             Ok(response)
         })
+    }
+}
+
+fn extract_cookie_as_string(request: &ServiceRequest, name: &str) -> String {
+    match request.cookie(name) {
+        Some(cookie) => cookie.value().to_owned(),
+        None => "".to_owned()
     }
 }

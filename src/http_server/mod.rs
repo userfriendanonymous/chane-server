@@ -1,18 +1,21 @@
-use actix_web::{HttpServer, App, web::Data, HttpResponse};
+use std::sync::Arc;
+
+use actix_web::{HttpServer as ActixHttpServer, App, web::Data, HttpResponse, FromRequest};
 use serde_json::json;
 use actix_cors::Cors;
-use crate::{db_pool::DbPool, session::Session};
+use crate::{db_pool::DbPool, session::{Session, AuthKeys}};
 use crate::shared::Shared;
 pub use api::LiveChannel;
 
 mod api;
-mod middleware;
 mod error_handlers;
+mod utils;
 
 pub struct AppState {
     db_pool: Shared<DbPool>,
     session: Shared<Option<Session<LiveChannel>>>,
-    live_channel: Shared<LiveChannel>
+    live_channel: Shared<LiveChannel>,
+    auth_keys: Arc<AuthKeys>
 }
 
 fn extract_session_gen() -> HttpResponse {
@@ -49,9 +52,22 @@ impl From<std::io::Error> for Error {
     }
 }
 
+pub struct HttpServer;
+impl HttpServer {
+    pub fn new() -> Self {
+        Self
+    }
+
+    pub async fn run() -> Result<(), Error> {
+        ActixHttpServer::new(move || {
+
+        })
+    }
+}
+
 type AppStateData = Data<AppState>;
 
-pub async fn launch() -> Result<(), Error> {
+pub async fn launch(auth_keys: AuthKeys) -> Result<(), Error> {
     let session = Shared::new(None);
     let db_pool = Shared::new(DbPool::new().await.map_err(Error::Db)?);
     let live_channel = Shared::new(LiveChannel::default());
@@ -62,14 +78,17 @@ pub async fn launch() -> Result<(), Error> {
         live_channel: live_channel.clone()
     });
 
-    HttpServer::new(move || {
+    ActixHttpServer::new(move || {
         App::new()
         .wrap(
             Cors::permissive()
+            .allow_any_header()
+            .allow_any_origin()
+            .allow_any_method()
         )
         .wrap(middleware::session::MiddlewareFactory {
             session: session.clone(),
-            auth_keys: crate::session::AuthKeys { access: "".to_owned(), key: "".to_owned() },
+            auth_keys: auth_keys.clone(),
             db_pool: db_pool.clone(),
             live_channel: live_channel.clone()
         })

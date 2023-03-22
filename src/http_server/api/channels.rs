@@ -27,8 +27,10 @@ pub async fn get_one(app_state: AppStateData, id: Path<String>) -> impl Responde
 
 #[derive(Deserialize)]
 pub struct CreateBoby {
+    #[serde(rename = "type")]
     pub _type: ChannelType,
     pub description: String,
+    pub title: String,
     pub default_role: String,
     pub labels: Vec<String>,
 }
@@ -36,7 +38,7 @@ pub struct CreateBoby {
 #[post("/")]
 pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> HttpResponse {
     extract_session!(app_state, session, extract_session_gen);
-    match session.create_channel(&body._type, &body.description, &body.default_role, &body.labels).await {
+    match session.create_channel(&body._type, &body.title, &body.description, &body.default_role, &body.labels).await {
         Ok(id) => HttpResponse::Created().json(json!({"id": id})),
         Err(error) => HttpResponse::from(error)
     }

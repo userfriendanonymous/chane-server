@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::{db_pool, session::LiveMessage};
+use crate::{db_pool::{self, Activity}, session::LiveMessage};
 
 use super::{Session, extract_db, extract_auth, Error as GeneralError, LiveChannel};
 
@@ -23,18 +23,23 @@ impl From<db_pool::Block> for Block {
 impl<LC: LiveChannel> Session<LC> {
     pub async fn create_block(&self, content: &str) -> Result<String, GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
-        extract_db!(self, db_pool, db_pool_cloned);
-        Ok(db_pool.create_block(content, auth.name.as_str(), &Vec::new()).await?)
+        let db_pool = self.db_pool();
+        let id = db_pool.create_block(content, auth.name.as_str(), &Vec::new()).await?;
+
+        db_pool.push_to_activity_table(&auth.activity_table_id, &[
+            Activity::BlockCreated { by: auth.name.clone(), id: id.clone() }
+        ]).await?;
+        Ok(id)
     }
 
     pub async fn get_block(&self, id: &str) -> Result<Block, GeneralError> {
-        extract_db!(self, db_pool, db_pool_cloned);
+        let db_pool = self.db_pool();
         Ok(Block::from(db_pool.get_block(id).await?))
     }
 
     pub async fn change_block(&self, id: &str, content: &str) -> Result<(), GeneralError> {
         let auth = extract_auth!(self, GeneralError::Unauthorized);
-        extract_db!(self, db_pool, db_pool_cloned);
+        let db_pool = self.db_pool();
         let block = db_pool.get_block(id).await?;
         if block.owner != auth.name {
             return Err(GeneralError::Unauthorized("you don't have permissions to change this block".to_owned()));

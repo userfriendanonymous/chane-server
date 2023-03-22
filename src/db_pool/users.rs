@@ -7,7 +7,8 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub password_hash: String,
-    pub groups: Vec<String>
+    pub groups: Vec<String>,
+    pub activity_table: String
 }
 
 pub struct CredentialUniqueness {
@@ -34,12 +35,13 @@ impl DbPool {
         }
     }
 
-    pub async fn create_user(&self, name: &str, email: &str, password_hash: &str) -> Result<(), Error> {
+    pub async fn create_user(&self, name: &str, email: &str, password_hash: &str, activity_table_id: &str) -> Result<(), Error> {
         let document = User {
             email: email.to_string(),
             name: name.to_string(),
             password_hash: password_hash.to_string(),
-            groups: Vec::new()
+            groups: Vec::new(),
+            activity_table: activity_table_id.to_string()
         };
         self.users.insert_one(document, None).await?;
         Ok(())
