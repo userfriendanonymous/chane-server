@@ -1,40 +1,16 @@
 use std::sync::Arc;
-
-use actix_web::{HttpServer as ActixHttpServer, App, web::Data, HttpResponse, FromRequest};
-use serde_json::json;
+use actix_web::{HttpServer as ActixHttpServer, App, web::Data};
 use actix_cors::Cors;
-use crate::{db_pool::DbPool, session::{Session, AuthKeys}};
-use crate::shared::Shared;
-pub use api::LiveChannel;
+use crate::{session_pool::SessionPool, logger::Logger};
 
 mod api;
 mod error_handlers;
 mod utils;
 
 pub struct AppState {
-    db_pool: Shared<DbPool>,
-    session: Shared<Option<Session<LiveChannel>>>,
-    live_channel: Shared<LiveChannel>,
-    auth_keys: Arc<AuthKeys>
+    session_pool: Arc<SessionPool>,
+    logger: Arc<Logger>
 }
-
-fn extract_session_gen() -> HttpResponse {
-    HttpResponse::InternalServerError().json(json!({
-        "message": "user session not found"
-    }))
-}
-
-macro_rules! extract_session {
-    ($app_state:expr, $session:ident, $gen:ident) => {
-        let $session = $app_state.session.clone();
-        let $session = &*$session.lock().await; // shadow like a pro
-        let $session = match $session {
-            Some(session) => session,
-            None => return $gen()
-        };
-    };
-}
-pub(self) use extract_session;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -52,52 +28,39 @@ impl From<std::io::Error> for Error {
     }
 }
 
-pub struct HttpServer;
+pub struct HttpServer {
+    session_pool: Arc<SessionPool>,
+    logger: Arc<Logger>
+}
+
 impl HttpServer {
-    pub fn new() -> Self {
-        Self
+    pub fn new(session_pool: Arc<SessionPool>, logger: Arc<Logger>) -> Self {
+        Self {session_pool, logger}
     }
 
-    pub async fn run() -> Result<(), Error> {
-        ActixHttpServer::new(move || {
+    pub async fn run(&self) -> Result<(), Error> {
+        let app_state = Data::new(AppState {
+            logger: self.logger.clone(),
+            session_pool: self.session_pool.clone()
+        });
 
+        ActixHttpServer::new(move || {
+            App::new()
+            .wrap(
+                Cors::permissive()
+                .allow_any_header()
+                .allow_any_origin()
+                .allow_any_method()
+            )
+            .app_data(app_state.clone())
+            .service(api::service())
         })
+        .bind(("127.0.0.1", 5000)).map_err(Error::FailedToBind)?
+        .run()
+        .await?;
+
+        Ok(())
     }
 }
 
 type AppStateData = Data<AppState>;
-
-pub async fn launch(auth_keys: AuthKeys) -> Result<(), Error> {
-    let session = Shared::new(None);
-    let db_pool = Shared::new(DbPool::new().await.map_err(Error::Db)?);
-    let live_channel = Shared::new(LiveChannel::default());
-
-    let app_state = Data::new(AppState {
-        db_pool: db_pool.clone(),
-        session: session.clone(),
-        live_channel: live_channel.clone()
-    });
-
-    ActixHttpServer::new(move || {
-        App::new()
-        .wrap(
-            Cors::permissive()
-            .allow_any_header()
-            .allow_any_origin()
-            .allow_any_method()
-        )
-        .wrap(middleware::session::MiddlewareFactory {
-            session: session.clone(),
-            auth_keys: auth_keys.clone(),
-            db_pool: db_pool.clone(),
-            live_channel: live_channel.clone()
-        })
-        .app_data(app_state.clone())
-        .service(api::service())
-    })
-    .bind(("127.0.0.1", 5000)).map_err(Error::FailedToBind)?
-    .run()
-    .await?;
-
-    Ok(())
-}

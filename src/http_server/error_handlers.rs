@@ -1,10 +1,10 @@
 use actix_web::HttpResponse;
-use crate::session::{self, Error as SessionError, RoleWrappedError, RegisterError, LoginError};
+use crate::session_pool::{self, Error as SessionError, RoleWrappedError, RegisterError, LoginError};
 use crate::db_pool::Error as DbError;
 use serde_json::json;
 
-impl From<session::Error> for HttpResponse {
-    fn from(error: session::Error) -> Self {
+impl From<session_pool::Error> for HttpResponse {
+    fn from(error: session_pool::Error) -> Self {
         match error {
             SessionError::Db(error) => match error {
                 DbError::InvalidObjectId(message) => HttpResponse::BadRequest().json(json!({

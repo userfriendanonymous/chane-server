@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
-use crate::{db_pool::{self, ChannelType, Activity}, session::{roles::RolePermissionValidator, LiveMessage, Block}};
-use super::{Session, Error as GeneralError, extract_auth, extract_db, roles::{resolve_user_role, RoleWrappedError}, LiveChannel};
+use crate::{db_pool::{self, ChannelType, Activity}, session_pool::{roles::RolePermissionValidator, Block}, live_channel::LiveMessage};
+use super::{Session, Error as GeneralError, roles::{resolve_user_role, RoleWrappedError}};
 
 #[derive(Serialize, Deserialize)]
 pub struct Channel {
@@ -23,10 +23,9 @@ impl From<db_pool::Channel> for Channel {
     }
 }
 
-impl<LC: LiveChannel> Session<LC> {
+impl Session {
     pub async fn create_channel(&self, _type: &ChannelType, title: &str, description: &str, default_role: &str, labels: &[String]) -> Result<String, GeneralError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        let db_pool = self.db_pool();
+        let (db_pool, auth) = self.auth_and_db()?;
 
         let id = db_pool.create_channel(_type, title, description, &Vec::new(), default_role, labels).await?;
         Ok(id)
@@ -38,8 +37,7 @@ impl<LC: LiveChannel> Session<LC> {
     }
 
     pub async fn connect_block_to_channel(&self, id: &str, block_id: &str) -> Result<(), RoleWrappedError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized, RoleWrappedError::General);
-        let db_pool = self.db_pool();
+        let (db_pool, auth) = self.auth_and_db()?;
         
         let (role, channel) = resolve_user_role(db_pool.clone(), id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
@@ -60,8 +58,7 @@ impl<LC: LiveChannel> Session<LC> {
     }
 
     pub async fn disconnect_block_from_channel(&self, id: &str, block_id: &str) -> Result<(), RoleWrappedError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        let db_pool = self.db_pool();
+        let (db_pool, auth) = self.auth_and_db()?;
         
         let (role, channel) = resolve_user_role(db_pool.clone(), id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
@@ -78,8 +75,7 @@ impl<LC: LiveChannel> Session<LC> {
     }
 
     pub async fn pin_channel_block(&self, id: &str, block_id: &Option<String>) -> Result<(), RoleWrappedError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        let db_pool = self.db_pool();
+        let (db_pool, auth) = self.auth_and_db()?;
         let (role, channel) = resolve_user_role(db_pool.clone(), id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
 
@@ -94,8 +90,7 @@ impl<LC: LiveChannel> Session<LC> {
     }
 
     pub async fn change_channel_description(&self, id: &str, description: &str) -> Result<(), RoleWrappedError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        let db_pool = self.db_pool();
+        let (db_pool, auth) = self.auth_and_db()?;
         let (role, channel) = resolve_user_role(db_pool.clone(), id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
         if validator.can_change_description() {
@@ -109,8 +104,7 @@ impl<LC: LiveChannel> Session<LC> {
     }
 
     pub async fn change_channel_labels(&self, id: &str, labels: &[String]) -> Result<(), RoleWrappedError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        let db_pool = self.db_pool();
+        let (db_pool, auth) = self.auth_and_db()?;
         let (role, channel) = resolve_user_role(db_pool.clone(), id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
         if validator.can_set_labels() {
@@ -124,8 +118,7 @@ impl<LC: LiveChannel> Session<LC> {
     }
 
     pub async fn get_channel_blocks(&self, id: &str, limit: &Option<i64>, offset: &Option<u64>) -> Result<(Vec<Block>, Vec<mongodb::error::Error>), RoleWrappedError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        let db_pool = self.db_pool();
+        let (db_pool, auth) = self.auth_and_db()?;
         let (role, channel) = resolve_user_role(db_pool.clone(), id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
 

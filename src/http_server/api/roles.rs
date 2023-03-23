@@ -1,7 +1,7 @@
 use actix_web::{Scope, web::{self, Path, Json}, get, post, put, HttpResponse};
 use serde::Deserialize;
 use serde_json::json;
-use crate::{db_pool::RolePermissions, session::CreateRoleError};
+use crate::{db_pool::RolePermissions, session_pool::CreateRoleError};
 
 use super::super::{AppStateData, extract_session, extract_session_gen};
 

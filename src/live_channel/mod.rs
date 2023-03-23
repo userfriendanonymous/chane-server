@@ -46,11 +46,11 @@ pub enum DisconnectError {
 #[derive(Default)]
 pub struct LiveChannel {
     channels: Mutex<Channels<dyn Peer>>,
-    peer_id: i64
+    peer_id: Mutex<i64>
 }
 
 impl LiveChannel {
-    pub async fn receive_message(&mut self, channel_id: &str, message: &LiveMessage) {
+    pub async fn receive_message(&self, channel_id: &str, message: &LiveMessage) {
         let empty_peers = Vec::new();
         let channels = self.channels.lock().await;
         let peers = channels.get(channel_id).unwrap_or(&empty_peers);
@@ -59,7 +59,7 @@ impl LiveChannel {
         }
     }
 
-    pub async fn connect(&mut self, peer: &Shared<dyn Peer>, channel_id: &str) -> Handle {
+    pub async fn connect(&self, peer: &Shared<dyn Peer>, channel_id: &str) -> Handle {
         let handle = Handle {
             channel_id: channel_id.to_string(),
             peer_id: self.peer_id
@@ -69,7 +69,7 @@ impl LiveChannel {
         match channels.get_mut(channel_id) {
             Some(peers) => {
                 peers.insert(self.peer_id, peer.clone());
-                self.peer_id += 1;
+                *self.peer_id.lock().await += 1;
             },
             None => {
                 channels.insert(channel_id.to_string(), vec![peer.clone()]);
@@ -79,7 +79,7 @@ impl LiveChannel {
         handle
     }
 
-    pub async fn disconnect(&mut self, handle: Handle) -> Result<(), DisconnectError> {
+    pub async fn disconnect(&self, handle: Handle) -> Result<(), DisconnectError> {
         let mut channels = self.channels.lock().await;
         let channel = channels.get_mut(handle.channel_id.as_str()).ok_or(DisconnectError::ChannelNotFound(handle.channel_id))?;
         channel.remove(&handle.peer_id).ok_or(DisconnectError::PeerNotFound(handle.peer_id))?;

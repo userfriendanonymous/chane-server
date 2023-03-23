@@ -4,7 +4,7 @@ mod blocks;
 mod channels;
 mod users;
 mod roles;
-mod live_channel;
+mod live;
 mod auth;
 pub use live_channel::State as LiveChannel;
 

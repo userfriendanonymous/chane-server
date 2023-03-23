@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use serde::{Serialize, Deserialize};
 use crate::db_pool::{self, RolePermissions, Channel, DbPool};
-use super::{Error as GeneralError, extract_db, extract_auth, Session, LiveChannel};
+use super::{Error as GeneralError, Session};
 
 #[derive(Serialize, Deserialize)]
 pub struct Role {
@@ -45,15 +45,14 @@ impl From<db_pool::Error> for CreateRoleError {
     }
 }
 
-impl<LC: LiveChannel> Session<LC> {
+impl Session {
     pub async fn get_role(&self, id: &str) -> Result<Role, GeneralError> {
         let db_pool = self.db_pool();
         Ok(Role::from(db_pool.get_role(id).await?))
     }
 
     pub async fn create_role(&self, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<String, CreateRoleError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        let db_pool = self.db_pool();
+        let (db_pool, auth) = self.auth_and_db()?;
 
         for role_id in extends { // validates that all extending roles exist to avoid stuff like recursion to itself
             match db_pool.get_role(role_id).await {
@@ -66,8 +65,7 @@ impl<LC: LiveChannel> Session<LC> {
     }
 
     pub async fn change_role(&self, id: &str, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<(), GeneralError> {
-        let auth = extract_auth!(self, GeneralError::Unauthorized);
-        extract_db!(self, db_pool, db_pool_cloned);
+        let (db_pool, auth) = self.auth_and_db()?;
         let role = db_pool.get_role(id).await?;
 
         let editors = if role.owner == auth.name {
