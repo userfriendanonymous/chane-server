@@ -34,11 +34,12 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(db_pool: Arc<DbPool>, auth_validator: Arc<AuthValidator>, live_channel: Arc<LiveChannel>, activity_logger: ActivityLogger, tokens: &Tokens) -> Self {
+    pub fn new(db_pool: Arc<DbPool>, auth_validator: Arc<AuthValidator>, live_channel: Arc<LiveChannel>, activity_logger: Arc<ActivityLogger>, tokens: &Tokens) -> Self {
+        let auth = auth_validator.tokens_as_auth(tokens);
         Self {
             db_pool,
             auth_validator,
-            auth: auth_validator.tokens_as_auth(tokens),
+            auth,
             live_channel,
             activity_logger
         }
@@ -46,10 +47,6 @@ impl Session {
 
     fn auth(&self) -> Result<&AuthInfo, Error> {
         self.auth.as_result().map_err(Error::Unauthorized)
-    }
-
-    fn auth_and_db(&self) -> Result<(Arc<DbPool>, &AuthInfo), Error> {
-        Ok((self.db_pool, self.auth()?))
     }
 }
 
@@ -61,7 +58,7 @@ pub struct SessionPool {
 }
 
 impl SessionPool {
-    pub fn new(db_pool: Arc<DbPool>, auth_validator: Arc<AuthValidator>, live_channel: Arc<LiveChannel>, activity_logger: Arc<ActivityLogger>){
+    pub fn new(db_pool: Arc<DbPool>, auth_validator: Arc<AuthValidator>, live_channel: Arc<LiveChannel>, activity_logger: Arc<ActivityLogger>) -> Self {
         Self {db_pool, auth_validator, live_channel, activity_logger}
     }
 

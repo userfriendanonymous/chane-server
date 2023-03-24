@@ -3,13 +3,6 @@ use std::ops::Deref;
 use actix_web::HttpRequest;
 use crate::{session_pool::{AuthTokens, Session}, db_pool::DbPool, http_server::AppStateData};
 
-fn extract_cookie_as_string(request: &actix_web::HttpRequest, name: &str) -> String {
-    match request.cookie(name) {
-        Some(cookie) => cookie.value().to_owned(),
-        None => "".to_owned()
-    }
-}
-
 pub struct HttpSession(Session);
 
 impl HttpSession {

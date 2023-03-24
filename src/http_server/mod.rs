@@ -1,15 +1,32 @@
 use std::sync::Arc;
-use actix_web::{HttpServer as ActixHttpServer, App, web::Data};
+use actix_web::{HttpServer as ActixHttpServer, App, web::Data, HttpRequest};
 use actix_cors::Cors;
-use crate::{session_pool::SessionPool, logger::Logger};
+use crate::{session_pool::{SessionPool, Session}, logger::Logger, auth_validator::Tokens, live_channel::LiveChannel};
 
 mod api;
 mod error_handlers;
-mod utils;
+// mod utils;
+
+fn extract_cookie_as_string(request: &HttpRequest, name: &str) -> String {
+    match request.cookie(name) {
+        Some(cookie) => cookie.value().to_owned(),
+        None => "".to_owned()
+    }
+}
 
 pub struct AppState {
     session_pool: Arc<SessionPool>,
-    logger: Arc<Logger>
+    logger: Arc<Logger>,
+    live_channel: Arc<LiveChannel>
+}
+
+impl AppState {
+    pub fn session_from_request(&self, request: &HttpRequest) -> Session {
+        self.session_pool.spawn_session(&Tokens {
+            access: extract_cookie_as_string(request, "access-token"),
+            key: extract_cookie_as_string(request, "key-token")
+        })
+    }
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -30,18 +47,20 @@ impl From<std::io::Error> for Error {
 
 pub struct HttpServer {
     session_pool: Arc<SessionPool>,
-    logger: Arc<Logger>
+    logger: Arc<Logger>,
+    live_channel: Arc<LiveChannel>
 }
 
 impl HttpServer {
-    pub fn new(session_pool: Arc<SessionPool>, logger: Arc<Logger>) -> Self {
-        Self {session_pool, logger}
+    pub fn new(session_pool: Arc<SessionPool>, logger: Arc<Logger>, live_channel: Arc<LiveChannel>) -> Self {
+        Self {session_pool, logger, live_channel}
     }
 
     pub async fn run(&self) -> Result<(), Error> {
         let app_state = Data::new(AppState {
             logger: self.logger.clone(),
-            session_pool: self.session_pool.clone()
+            session_pool: self.session_pool.clone(),
+            live_channel: self.live_channel.clone()
         });
 
         ActixHttpServer::new(move || {

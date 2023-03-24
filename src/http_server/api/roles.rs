@@ -1,9 +1,9 @@
-use actix_web::{Scope, web::{self, Path, Json}, get, post, put, HttpResponse};
+use actix_web::{Scope, web::{self, Path, Json}, get, post, put, HttpResponse, HttpRequest};
 use serde::Deserialize;
 use serde_json::json;
 use crate::{db_pool::RolePermissions, session_pool::CreateRoleError};
 
-use super::super::{AppStateData, extract_session, extract_session_gen};
+use super::super::AppStateData;
 
 pub fn service() -> Scope {
     web::scope("/roles")
@@ -13,8 +13,8 @@ pub fn service() -> Scope {
 }
 
 #[get("/{id}")]
-pub async fn get_one(app_state: AppStateData, id: Path<String>) -> HttpResponse {
-    extract_session!(app_state, session, extract_session_gen);
+pub async fn get_one(app_state: AppStateData, id: Path<String>, req: HttpRequest) -> HttpResponse {
+    let session = app_state.session_from_request(&req);
     match session.get_role(&id).await {
         Ok(role) => HttpResponse::Ok().json(role),
         Err(error) => error.into()
@@ -30,8 +30,8 @@ pub struct CreateBoby {
 }
 
 #[post("/")]
-pub async fn create(app_state: AppStateData, body: Json<CreateBoby>) -> HttpResponse {
-    extract_session!(app_state, session, extract_session_gen);
+pub async fn create(app_state: AppStateData, body: Json<CreateBoby>, req: HttpRequest) -> HttpResponse {
+    let session = app_state.session_from_request(&req);
     match session.create_role(&body.name, &body.extends, &body.editors, &body.permissions).await {
         Ok(id) => HttpResponse::Created().json(json!({
             "id": id
@@ -55,8 +55,8 @@ pub struct ChangeBody {
 }
 
 #[put("/{id}")]
-pub async fn change(app_state: AppStateData, id: Path<String>, body: Json<ChangeBody>) -> HttpResponse {
-    extract_session!(app_state, session, extract_session_gen);
+pub async fn change(app_state: AppStateData, id: Path<String>, body: Json<ChangeBody>, req: HttpRequest) -> HttpResponse {
+    let session = app_state.session_from_request(&req);
     match session.change_role(id.as_str(), &body.name, &body.extends, &body.editors, &body.permissions).await {
         Ok(()) => HttpResponse::Ok().json(json!({
             "message": "success"

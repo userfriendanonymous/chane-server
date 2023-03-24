@@ -1,7 +1,7 @@
 use actix_web::{Scope, web::{self, Json, Path}, Responder, HttpResponse, get, post, HttpRequest};
 use serde::Deserialize;
 use serde_json::json;
-use super::super::{AppStateData, utils::session::HttpSession};
+use super::super::AppStateData;
 
 pub fn service() -> Scope {
     web::scope("/blocks")
@@ -12,7 +12,7 @@ pub fn service() -> Scope {
 
 #[get("/{id}")]
 async fn get_one(app_state: AppStateData, id: Path<String>, req: HttpRequest) -> impl Responder {
-    let session = HttpSession::from_request(&req, app_state.clone());
+    let session = app_state.session_from_request(&req);
     match session.get_block(id.as_str()).await {
         Ok(block) => HttpResponse::Ok().json(block),
         Err(error) => HttpResponse::from(error)
@@ -25,8 +25,8 @@ pub struct CreateBody {
 }
 
 #[post("/")]
-async fn create(app_state: AppStateData, body: Json<CreateBody>) -> impl Responder {
-    extract_session!(app_state, session, extract_session_gen);
+async fn create(app_state: AppStateData, body: Json<CreateBody>, req: HttpRequest) -> impl Responder {
+    let session = app_state.session_from_request(&req);
     match session.create_block(body.content.as_str()).await {
         Ok(id) => HttpResponse::Ok().json(json!({"id": id})),
         Err(error) => HttpResponse::from(error)
@@ -39,8 +39,8 @@ pub struct ChangeBody {
 }
 
 #[post("/{id}")]
-async fn change(app_state: AppStateData, id: Path<String>, body: Json<CreateBody>) -> impl Responder {
-    extract_session!(app_state, session, extract_session_gen);
+async fn change(app_state: AppStateData, id: Path<String>, body: Json<CreateBody>, req: HttpRequest) -> impl Responder {
+    let session = app_state.session_from_request(&req);
     match session.change_block(id.as_str(), body.content.as_str()).await {
         Ok(()) => HttpResponse::Ok().json(json!({"message": "success"})),
         Err(error) => HttpResponse::from(error)

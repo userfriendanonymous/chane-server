@@ -1,10 +1,10 @@
-use std::{collections::HashMap, fmt::Debug};
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use serde::Serialize;
 use async_trait::async_trait;
-use crate::shared::Shared;
 use tokio::sync::Mutex;
 
-type Channels<P: Peer> = HashMap<String, HashMap<i64, Shared<P>>>;
+type PeerShared = Arc<dyn Peer + Send + Sync>;
+type Channels = HashMap<String, HashMap<i64, PeerShared>>;
 
 #[derive(Serialize)]
 #[serde(tag = "topic", content = "data", rename = "snake_case")]
@@ -27,7 +27,7 @@ pub enum LiveMessage {
 
 #[async_trait]
 pub trait Peer {
-    async fn receive_message(&mut self, message: &LiveMessage);
+    async fn receive_message(&self, message: &LiveMessage);
 }
 
 pub struct Handle {
@@ -45,36 +45,39 @@ pub enum DisconnectError {
 
 #[derive(Default)]
 pub struct LiveChannel {
-    channels: Mutex<Channels<dyn Peer>>,
+    channels: Mutex<Channels>,
     peer_id: Mutex<i64>
 }
 
 impl LiveChannel {
     pub async fn receive_message(&self, channel_id: &str, message: &LiveMessage) {
-        let empty_peers = Vec::new();
+        let empty_peers = HashMap::new();
         let channels = self.channels.lock().await;
         let peers = channels.get(channel_id).unwrap_or(&empty_peers);
-        for peer in peers {
-            peer.lock().await.receive_message(message).await
+        for (id, peer) in peers {
+            peer.receive_message(message).await
         }
     }
 
-    pub async fn connect(&self, peer: &Shared<dyn Peer>, channel_id: &str) -> Handle {
+    pub async fn connect(&self, peer: PeerShared, channel_id: &str) -> Handle {
+        let mut peer_id = self.peer_id.lock().await;
         let handle = Handle {
             channel_id: channel_id.to_string(),
-            peer_id: self.peer_id
+            peer_id: *peer_id
         };
 
         let mut channels = self.channels.lock().await;
         match channels.get_mut(channel_id) {
             Some(peers) => {
-                peers.insert(self.peer_id, peer.clone());
-                *self.peer_id.lock().await += 1;
+                peers.insert(*peer_id, peer);
             },
             None => {
-                channels.insert(channel_id.to_string(), vec![peer.clone()]);
+                let mut peers = HashMap::new();
+                peers.insert(*peer_id, peer);
+                channels.insert(channel_id.to_string(), peers);
             }
         };
+        *peer_id += 1;
 
         handle
     }

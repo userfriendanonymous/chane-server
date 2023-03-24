@@ -22,32 +22,30 @@ impl From<db_pool::Block> for Block {
 
 impl Session {
     pub async fn create_block(&self, content: &str) -> Result<String, GeneralError> {
-        let (db_pool, auth) = self.auth_and_db()?;
-        let id = db_pool.create_block(content, auth.name.as_str(), &Vec::new()).await?;
+        let auth = self.auth()?;
+        let id = self.db_pool.create_block(content, auth.name.as_str(), &Vec::new()).await?;
 
         self.activity_logger.log(&auth.activity_table_id, &[
             Activity::BlockCreated { by: auth.name.clone(), id: id.clone() }
-        ]);
+        ]).await;
         Ok(id)
     }
 
     pub async fn get_block(&self, id: &str) -> Result<Block, GeneralError> {
-        let db_pool = self.db_pool();
-        Ok(Block::from(db_pool.get_block(id).await?))
+        Ok(Block::from(self.db_pool.get_block(id).await?))
     }
 
     pub async fn change_block(&self, id: &str, content: &str) -> Result<(), GeneralError> {
-        let (db_pool, auth) = self.auth_and_db()?;
-        let block = db_pool.get_block(id).await?;
+        let auth = self.auth()?;
+        let block = self.db_pool.get_block(id).await?;
         if block.owner != auth.name {
             return Err(GeneralError::Unauthorized("you don't have permissions to change this block".to_owned()));
         }
-        db_pool.change_block(id, content).await?;
-        let mut live_channel = self.live_channel.lock().await;
+        self.db_pool.change_block(id, content).await?;
         
         let message = LiveMessage::BlockChanged { id: id.to_string() };
         for channel_id in block.connected_channels {
-            live_channel.receive_message(channel_id.as_str(), &message).await;
+            self.live_channel.receive_message(channel_id.as_str(), &message).await;
         }
         Ok(())
     }

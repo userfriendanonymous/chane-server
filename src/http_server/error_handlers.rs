@@ -47,7 +47,7 @@ impl From<RegisterError> for HttpResponse {
             RegisterError::InvaildNameChars => HttpResponse::Forbidden().json(json!({"message": "username contains invalid characters"})),
             RegisterError::TooLongPassword => HttpResponse::Conflict().json(json!({"message": "password is too long"})),
             RegisterError::TooShortPassword => HttpResponse::Conflict().json(json!({"message": "password is too short"})),
-            RegisterError::TokenGenerationFailed(message) => HttpResponse::InternalServerError().json(json!({"message": format!("failed to generate tokens: {message}")})),
+            RegisterError::InfoAsTokens(error) => HttpResponse::InternalServerError().json(json!({"message": format!("failed to convert generate tokens: {error}")})),
             RegisterError::Hashing(message) => HttpResponse::InternalServerError().json(json!({"message": format!("failed to hash: {message}")})),
             RegisterError::General(error) => error.into(),
         }
@@ -58,7 +58,7 @@ impl From<LoginError> for HttpResponse {
     fn from(error: LoginError) -> Self {
         match error {
             LoginError::InvalidCredentials => HttpResponse::Forbidden().json(json!({"message": "invalid credentials"})),
-            LoginError::TokenGenerationFailed(message) => HttpResponse::InternalServerError().json(json!({"message": format!("failed to generate tokens: {message}")})),
+            LoginError::InfoAsTokens(error) => HttpResponse::InternalServerError().json(json!({"message": format!("failed to convert generate tokens: {error}")})),
             LoginError::General(error) => error.into()
         }
     }

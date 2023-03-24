@@ -1,5 +1,5 @@
-use actix_web::{Scope, web::{self, Path}, get, HttpResponse};
-use super::super::{AppStateData, extract_session_gen, extract_session};
+use actix_web::{Scope, web::{self, Path}, get, HttpResponse, HttpRequest};
+use super::super::AppStateData;
 
 pub fn service() -> Scope {
     web::scope("/users")
@@ -7,8 +7,8 @@ pub fn service() -> Scope {
 }
 
 #[get("/{name}")]
-pub async fn get_one(app_state: AppStateData, name: Path<String>) -> HttpResponse {
-    extract_session!(app_state, session, extract_session_gen);
+pub async fn get_one(app_state: AppStateData, name: Path<String>, req: HttpRequest) -> HttpResponse {
+    let session = app_state.session_from_request(&req);
     match session.get_user(&name).await {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(error) => error.into()

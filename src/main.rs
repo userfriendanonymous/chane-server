@@ -39,18 +39,18 @@ async fn main(){
         key: std::env::var("KEY_KEY").unwrap()
     };
     let auth_validator = Arc::new(AuthValidator::new(&auth_keys));
+    let logger = Arc::new(Logger::new());
     let db_pool = Arc::new(DbPool::new().await.unwrap());
     let live_channel = Arc::new(LiveChannel::default());
-    let activity_logger = Arc::new(ActivityLogger::new(db_pool));
-    let session_pool = Arc::new(SessionPool::new(db_pool.clone(), auth_validator.clone(), live_channel.clone(), activity_logger.clone()));
-    let logger = Arc::new(Logger::default());
-    let http_server = HttpServer::new(session_pool.clone(), logger.clone());
+    let activity_logger = Arc::new(ActivityLogger::new(db_pool.clone(), logger.clone()));
+    let session_pool = Arc::new(SessionPool::new(db_pool.clone(), auth_validator.clone(), live_channel.clone(), activity_logger.clone())); // everything.clone()
+    let http_server = HttpServer::new(session_pool.clone(), logger.clone(), live_channel.clone());
 
-    let app_task = tokio::join!(
+    let (http_server_result, (), ()) = tokio::join!(
         http_server.run(),
         logger.run(),
         activity_logger.run()
     );
 
-    app_task.await;
+    http_server_result.unwrap();
 }

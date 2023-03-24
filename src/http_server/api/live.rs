@@ -1,14 +1,10 @@
-use actix_web::{HttpRequest, web, HttpResponse, get};
-use actix_ws::Session;
-use crate::{shared::Shared, live_channel::{self, LiveMessage}};
-use super::super::AppStateData;
-use std::{sync::Arc, collections::HashMap};
-use tokio::sync::Mutex;
-use async_trait::async_trait;
+use std::sync::Arc;
 
-pub struct Peer {
-    pub session: Session
-}
+use actix_web::{HttpRequest, web, HttpResponse, get};
+use tokio::sync::Mutex;
+use crate::live_channel::{self, LiveMessage};
+use super::super::AppStateData;
+use async_trait::async_trait;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -29,55 +25,14 @@ impl From<actix_ws::Closed> for Error {
     }
 }
 
-struct WebsocketPeer {}
+struct WebsocketPeer {
+    session: Mutex<actix_ws::Session>
+}
 
 #[async_trait]
 impl live_channel::Peer for WebsocketPeer {
-    async fn receive_message(&mut self, message: &LiveMessage, channel_id: &str){
-
-    }
-}
-
-impl Peer {
-    pub async fn receive_message(&mut self, message: &LiveMessage) -> Result<(), Error> {
-        self.session.text(serde_json::to_string(message)?).await?;
-        Ok(())
-    }
-}
-
-type Channels = HashMap<String, Vec<PeerShared>>;
-type PeerShared = Arc<Mutex<Peer>>;
-
-#[derive(Default)]
-pub struct State {
-    channels: Mutex<Channels>,
-}
-
-#[async_trait]
-impl session::LiveChannel for State {
-    async fn receive_message(&mut self, channel_id: &str, message: &LiveMessage) {
-        let empty_peers = Vec::new();
-        let channels = self.channels.lock().await;
-        let peers = channels.get(channel_id).unwrap_or(&empty_peers);
-        let mut errors = Vec::new();
-        for peer in peers {
-            if let Err(error) = peer.lock().await.receive_message(message).await {
-                errors.push(error);
-            }
-        }
-        println!("errors: {errors:?}");
-    }
-}
-
-impl State {
-    pub async fn connect(&mut self, peer: &Arc<Mutex<Peer>>, channel_id: &String){
-        let mut channels = self.channels.lock().await;
-        match channels.get_mut(channel_id) {
-            Some(peers) => peers.push(peer.clone()),
-            None => {
-                channels.insert(channel_id.clone(), vec![peer.clone()]);
-            }
-        };
+    async fn receive_message(&self, message: &LiveMessage) {
+        self.session.lock().await.text("receive").await;
     }
 }
 
@@ -85,16 +40,18 @@ impl State {
 pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::Payload) -> Result<HttpResponse, actix_web::Error> {
     let (response, session, mut message_stream) = actix_ws::handle(&request, body)?;
 
-    let peer = Shared::new(WebsocketPeer {});
+    let peer = Arc::new(WebsocketPeer {
+        session: Mutex::new(session.clone())
+    });
 
     let live_channel = app_state.live_channel.clone();
-    let handle = live_channel.lock().await.connect(&peer, &"".to_string()).await;
+    let handle = live_channel.connect(peer.clone(), &"".to_string()).await;
 
     actix_rt::spawn(async move {
         while let Some(Ok(message)) = message_stream.recv().await {
         }
 
-        live_channel.lock().await.disconnect(handle).await;
+        live_channel.disconnect(handle).await;
         let _ = session.close(None).await;
     });
 

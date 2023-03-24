@@ -1,13 +1,11 @@
-use std::fmt;
+use tokio::io::AsyncWriteExt;
+use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, UnboundedSender, UnboundedReceiver};
 use tokio::fs;
 
-type Message = dyn fmt::Display;
-
-#[derive(Default)]
 pub struct Logger {
-    sender: UnboundedSender<Message>,
-    receiver: UnboundedReceiver<Message>
+    sender: UnboundedSender<String>,
+    receiver: Mutex<UnboundedReceiver<String>>
 }
 
 impl Logger {
@@ -15,27 +13,29 @@ impl Logger {
         let (sender, receiver) = mpsc::unbounded_channel();
         Self {
             sender,
-            receiver
+            receiver: Mutex::new(receiver)
         }
     }
 
-    pub async fn log<E: fmt::Display>(&self, log: &E){
-        self.sender.send(log);
+    pub fn log(&self, log: &str){
+        self.sender.send(log.to_string());
     }
 
-    pub async fn log_many<E: fmt::Display>(&self, logs: &[E]){
-        logs.iter.for_each(|log| self.log(log));
+    pub async fn log_many(&self, logs: &[String]){
+        logs.iter().for_each(|log| self.log(log));
     }
 
     pub async fn run(&self){
-        while let Some(log) = self.receiver.recv().await {
-            let log = log.to_string();
-            let Ok(file) = fs::File::open("logs.txt").await else {
+        let mut receiver = self.receiver.lock().await;
+        while let Some(log) = receiver.recv().await {
+            let Ok(mut file) = fs::File::open("logs.txt").await else {
                 println!("[failed to open logs-file]: {log}");
+                continue;
             };
 
-            let Ok(()) = file.write_all(log).await else {
+            let Ok(()) = file.write_all(log.as_bytes()).await else {
                 println!("[failed to write logs-file]: {log}");
+                continue;
             };
         }
     }

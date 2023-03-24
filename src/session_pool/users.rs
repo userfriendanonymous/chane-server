@@ -17,7 +17,6 @@ impl From<db_pool::User> for User {
 
 impl Session {
     pub async fn get_user(&self, name: &str) -> Result<User, GeneralError> {
-        let db_pool = self.db_pool();
-        Ok(User::from(db_pool.get_user(name).await?))
+        Ok(User::from(self.db_pool.get_user(name).await?))
     }
 }

@@ -47,26 +47,25 @@ impl From<db_pool::Error> for CreateRoleError {
 
 impl Session {
     pub async fn get_role(&self, id: &str) -> Result<Role, GeneralError> {
-        let db_pool = self.db_pool();
-        Ok(Role::from(db_pool.get_role(id).await?))
+        Ok(Role::from(self.db_pool.get_role(id).await?))
     }
 
     pub async fn create_role(&self, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<String, CreateRoleError> {
-        let (db_pool, auth) = self.auth_and_db()?;
+        let auth = self.auth()?;
 
         for role_id in extends { // validates that all extending roles exist to avoid stuff like recursion to itself
-            match db_pool.get_role(role_id).await {
+            match self.db_pool.get_role(role_id).await {
                 Ok(_) => {}
                 Err(error) => return Err(CreateRoleError::RoleDoesNotExist(role_id.clone(), error))
             }
         }
 
-        Ok(db_pool.create_role(name, &auth.name, extends, editors, permissions).await?)
+        Ok(self.db_pool.create_role(name, &auth.name, extends, editors, permissions).await?)
     }
 
     pub async fn change_role(&self, id: &str, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<(), GeneralError> {
-        let (db_pool, auth) = self.auth_and_db()?;
-        let role = db_pool.get_role(id).await?;
+        let auth = self.auth()?;
+        let role = self.db_pool.get_role(id).await?;
 
         let editors = if role.owner == auth.name {
             Some(editors.to_owned())
@@ -76,7 +75,7 @@ impl Session {
             return Err(GeneralError::Unauthorized("You don't have permissions to edit this role".to_owned()))
         };
         
-        db_pool.change_role(id, name, extends, &editors, permissions).await.map_err(GeneralError::Db)
+        self.db_pool.change_role(id, name, extends, &editors, permissions).await.map_err(GeneralError::Db)
     }
 }
 

@@ -47,10 +47,14 @@ pub enum RegisterError {
     #[error("failed to hash password: {0}")]
     Hashing(String)
 }
-
 impl From<db_pool::Error> for RegisterError {
     fn from(value: db_pool::Error) -> Self {
         Self::General(GeneralError::Db(value))
+    }
+}
+impl From<InfoAsTokensError> for RegisterError {
+    fn from(value: InfoAsTokensError) -> Self {
+        Self::InfoAsTokens(value)
     }
 }
 
@@ -63,10 +67,14 @@ pub enum LoginError {
     #[error("invalid credentials")]
     InvalidCredentials
 }
-
 impl From<db_pool::Error> for LoginError {
     fn from(value: db_pool::Error) -> Self {
         Self::General(GeneralError::Db(value))
+    }
+}
+impl From<InfoAsTokensError> for LoginError {
+    fn from(value: InfoAsTokensError) -> Self {
+        Self::InfoAsTokens(value)
     }
 }
 
@@ -85,9 +93,7 @@ impl Session {
     }
 
     pub async fn login(&self, name: &str, password: &str) -> Result<Tokens, LoginError> {
-        let db_pool = self.db_pool();
-
-        let user = db_pool.get_user(name).await?;
+        let user = self.db_pool.get_user(name).await?;
         if !compare_password(password, user.password_hash.as_str()) {
             return Err(LoginError::InvalidCredentials);
         }
@@ -116,8 +122,7 @@ impl Session {
             return Err(RegisterError::TooLongPassword);
         }
 
-        let db_pool = self.db_pool();
-        let uniqueness = db_pool.check_if_unique_credentials(name, email).await?;
+        let uniqueness = self.db_pool.check_if_unique_credentials(name, email).await?;
         if !uniqueness.email {
             return Err(RegisterError::EmailTaken);
         }
@@ -131,14 +136,14 @@ impl Session {
             Activity::UserJoined { name: name.to_string() }
         ];
 
-        let activity_table_id = db_pool.create_activity_table(&activities).await?;
+        let activity_table_id = self.db_pool.create_activity_table(&activities).await?;
 
         let tokens = self.auth_validator.info_as_tokens(&AuthInfo {
             name: name.to_string(),
             activity_table_id: activity_table_id.clone()
         })?;
 
-        db_pool.create_user(name, email, password_hash.as_str(), &activity_table_id).await?;
+        self.db_pool.create_user(name, email, password_hash.as_str(), &activity_table_id).await?;
 
         Ok(tokens)
     }

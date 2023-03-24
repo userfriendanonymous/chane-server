@@ -1,7 +1,7 @@
 use actix_web::{Scope, web::{self, Json}, post, get, HttpResponse, cookie::{CookieBuilder, Cookie}, HttpRequest};
 use serde::Deserialize;
 use serde_json::json;
-use crate::http_server::{AppStateData, extract_session, extract_session_gen};
+use crate::http_server::AppStateData;
 
 pub fn service() -> Scope {
     web::scope("/auth")
@@ -18,14 +18,14 @@ pub struct JoinBody {
 }
 
 #[get("/me")]
-pub async fn me(app_state: AppStateData) -> HttpResponse {
-    extract_session!(app_state, session, extract_session_gen);
+pub async fn me(app_state: AppStateData, req: HttpRequest) -> HttpResponse {
+    let session = app_state.session_from_request(&req);
     HttpResponse::Ok().json(session.me().await)
 }
 
 #[post("/join")]
-pub async fn join(app_state: AppStateData, body: Json<JoinBody>, request: HttpRequest) -> HttpResponse {
-    extract_session!(app_state, session, extract_session_gen);
+pub async fn join(app_state: AppStateData, body: Json<JoinBody>, req: HttpRequest) -> HttpResponse {
+    let session = app_state.session_from_request(&req);
     match session.register(&body.name, &body.email, &body.password).await {
         Ok(tokens) => HttpResponse::Created()
         .cookie(
@@ -51,8 +51,8 @@ pub struct LoginBody {
 }
 
 #[post("/login")]
-pub async fn login(app_state: AppStateData, body: Json<LoginBody>) -> HttpResponse {
-    extract_session!(app_state, session, extract_session_gen);
+pub async fn login(app_state: AppStateData, body: Json<LoginBody>, req: HttpRequest) -> HttpResponse {
+    let session = app_state.session_from_request(&req);
     match session.login(&body.name, &body.password).await {
         Ok(tokens) => HttpResponse::Ok()
         .cookie(

@@ -1,4 +1,5 @@
 use jsonwebtoken::{Algorithm, EncodingKey, DecodingKey, Validation};
+use rand::Rng;
 use serde::{Serialize, Deserialize};
 
 pub enum Auth {
@@ -82,8 +83,8 @@ impl AuthValidator {
         let access_claims = AccessClaims {
             exp,
             key: key.clone(),
-            name: info.name,
-            activity_table_id: info.activity_table_id
+            name: info.name.clone(),
+            activity_table_id: info.activity_table_id.clone()
         };
 
         let key_claims = KeyClaims {
@@ -108,7 +109,7 @@ impl AuthValidator {
         }};
 
         let access_claims = match jsonwebtoken::decode::<AccessClaims>(
-            &self.access,
+            &tokens.access,
             &DecodingKey::from_secret(self.keys.access.as_bytes()),
             &Validation::new(Algorithm::HS512)
         ) {
@@ -117,7 +118,7 @@ impl AuthValidator {
         }.claims;
 
         let key_claims = match jsonwebtoken::decode::<KeyClaims>(
-            &self.key,
+            &tokens.key,
             &DecodingKey::from_secret(self.keys.key.as_bytes()),
             &Validation::new(Algorithm::HS512)
         ) {
