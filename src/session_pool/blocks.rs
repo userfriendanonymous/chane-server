@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::{db_pool::{self, Activity}, live_channel::LiveMessage};
+use crate::{db_pool, live_channel::LiveMessage, activity_logger::Activity};
 
 use super::{Session, Error as GeneralError};
 
@@ -25,9 +25,7 @@ impl Session {
         let auth = self.auth()?;
         let id = self.db_pool.create_block(content, auth.name.as_str(), &Vec::new()).await?;
 
-        self.activity_logger.log(&auth.activity_table_id, &[
-            Activity::BlockCreated { by: auth.name.clone(), id: id.clone() }
-        ]).await;
+        self.activity_logger.log(Activity::BlockCreated { id: id.clone(), by: auth.name.clone() });
         Ok(id)
     }
 
@@ -45,7 +43,7 @@ impl Session {
         
         let message = LiveMessage::BlockChanged { id: id.to_string() };
         for channel_id in block.connected_channels {
-            self.live_channel.receive_message(channel_id.as_str(), &message).await;
+            self.live_channel.receive_message(channel_id.as_str(), &message);
         }
         Ok(())
     }

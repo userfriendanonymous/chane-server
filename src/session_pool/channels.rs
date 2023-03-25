@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::{db_pool::{self, ChannelType, Activity}, session_pool::{roles::RolePermissionValidator, Block}, live_channel::LiveMessage};
+use crate::{db_pool::{self, ChannelType}, session_pool::{roles::RolePermissionValidator, Block}, live_channel::LiveMessage, activity_logger::Activity};
 use super::{Session, Error as GeneralError, roles::{resolve_user_role, RoleWrappedError}};
 
 #[derive(Serialize, Deserialize)]
@@ -27,7 +27,8 @@ impl Session {
     pub async fn create_channel(&self, _type: &ChannelType, title: &str, description: &str, default_role: &str, labels: &[String]) -> Result<String, GeneralError> {
         let auth = self.auth()?;
 
-        let id = self.db_pool.create_channel(_type, title, description, &Vec::new(), default_role, labels).await?;
+        let activity_table_id = self.db_pool.create_activity_table().await?;
+        let id = self.db_pool.create_channel(_type, title, description, &Vec::new(), default_role, labels, &activity_table_id).await?;
         Ok(id)
     }
 
@@ -43,12 +44,9 @@ impl Session {
 
         if validator.can_connect_blocks() {
             self.db_pool.connect_block_to_channel(block_id, id).await?;
-            self.live_channel.receive_message(id, &LiveMessage::BlockConnected { id: block_id.to_string() }).await;
+            self.live_channel.receive_message(id, &LiveMessage::BlockConnected { id: block_id.to_string() });
 
-            self.db_pool.push_to_activity_table(&auth.activity_table_id, &[
-                Activity::BlockConnected { by: auth.name.clone(), id: id.to_string() }
-            ]).await?;
-
+            self.activity_logger.log(Activity::BlockConnectedToChannel { block_id: block_id.to_string(), id: id.to_string(), by: auth.name.clone() });
             Ok(())
         } else {
             Err(GeneralError::Unauthorized("you don't have permissions to connect blocks".to_owned()).into())
@@ -63,8 +61,9 @@ impl Session {
 
         if validator.can_disconnect_blocks() {
             self.db_pool.disconnect_block_from_channel(block_id, id).await?;
-            self.live_channel.receive_message(id, &LiveMessage::BlockDisconnected { id: block_id.to_string() }).await;
+            self.live_channel.receive_message(id, &LiveMessage::BlockDisconnected { id: block_id.to_string() });
 
+            self.activity_logger.log(Activity::BlockDisconnectedFromChannel { block_id: block_id.to_string(), id: id.to_string(), by: auth.name.to_string() });
             Ok(())
         } else {
             Err(GeneralError::Unauthorized("you don't have permissions to disconnect blocks".to_owned()).into())
@@ -78,7 +77,9 @@ impl Session {
 
         if validator.can_pin_block() {
             self.db_pool.pin_channel_block(id, block_id).await?;
-            self.live_channel.receive_message(id, &LiveMessage::BlockPinned { id: block_id.clone() }).await;
+            self.live_channel.receive_message(id, &LiveMessage::BlockPinned { id: block_id.clone() });
+
+            self.activity_logger.log(Activity::BlockPinnedOnChannel { block_id: block_id.clone(), id: id.to_string(), by: auth.name.clone() });
             Ok(())
         } else {
             Err(GeneralError::Unauthorized("you don't have permission to pin block".to_owned()).into())
@@ -91,7 +92,9 @@ impl Session {
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
         if validator.can_change_description() {
             self.db_pool.change_channel_description(id, description).await?;
-            self.live_channel.receive_message(id, &LiveMessage::DescriptionChanged).await;
+            self.live_channel.receive_message(id, &LiveMessage::DescriptionChanged);
+
+            self.activity_logger.log(Activity::ChannelDescriptionChanged { id: id.to_string(), by: auth.name.clone() });
             Ok(())
         } else {
             Err(GeneralError::Unauthorized("you don't have permissions to change channel description".to_owned()).into())
@@ -104,7 +107,8 @@ impl Session {
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
         if validator.can_set_labels() {
             self.db_pool.change_channel_labels(id, labels).await?;
-            self.live_channel.receive_message(id, &LiveMessage::LabelsChanged).await;
+            self.live_channel.receive_message(id, &LiveMessage::LabelsChanged);
+            self.activity_logger.log(Activity::ChannelLabelsChanged { id: id.to_string(), by: auth.name.clone() });
             Ok(())
         } else {
             Err(GeneralError::Unauthorized("you don't have permissions to set channel labels".to_owned()).into())

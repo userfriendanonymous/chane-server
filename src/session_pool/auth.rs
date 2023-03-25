@@ -1,4 +1,5 @@
-use crate::{db_pool::{self, Activity}, auth_validator::{Auth, Tokens, AuthInfo, InfoAsTokensError}};
+use crate::{db_pool, auth_validator::{Auth, Tokens, AuthInfo, InfoAsTokensError}};
+use crate::activity_logger::Activity;
 
 use super::{Session, Error as GeneralError};
 use serde::Serialize;
@@ -99,8 +100,7 @@ impl Session {
         }
 
         let tokens = self.auth_validator.info_as_tokens(&AuthInfo {
-            name: name.to_string(),
-            activity_table_id: user.activity_table
+            name: name.to_string()
         })?;
 
         Ok(tokens)
@@ -131,19 +131,13 @@ impl Session {
         }
 
         let password_hash = hash_password(password).map_err(RegisterError::Hashing)?;
-
-        let activities = vec![
-            Activity::UserJoined { name: name.to_string() }
-        ];
-
-        let activity_table_id = self.db_pool.create_activity_table(&activities).await?;
-
         let tokens = self.auth_validator.info_as_tokens(&AuthInfo {
             name: name.to_string(),
-            activity_table_id: activity_table_id.clone()
         })?;
 
+        let activity_table_id = self.db_pool.create_activity_table().await?;
         self.db_pool.create_user(name, email, password_hash.as_str(), &activity_table_id).await?;
+        self.activity_logger.log(Activity::Joined { by: name.to_string() });
 
         Ok(tokens)
     }

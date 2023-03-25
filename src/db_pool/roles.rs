@@ -24,6 +24,7 @@ pub struct RolePermissions {
     pub change_description: Vec<String>,
     pub pin_roles: Vec<String>,
     pub set_labels: bool,
+    pub live: Vec<String>,
 }
 
 fn append_vec_unique<V: PartialEq + Clone>(vec1: &mut Vec<V>, vec2: &Vec<V>){
@@ -44,6 +45,7 @@ impl RolePermissions {
         append_vec_unique(&mut self.change_default_role, &external.change_default_role);
         append_vec_unique(&mut self.change_description, &external.change_description);
         append_vec_unique(&mut self.pin_roles, &external.pin_roles);
+        append_vec_unique(&mut self.live, &external.live);
         self.set_labels = self.set_labels || external.set_labels;
     }
 }
@@ -76,22 +78,23 @@ impl DbPool {
         name: &str,
         extends: &[String],
         editors: &Option<Vec<String>>,
-        permissions: &RolePermissions
+        permissions: RolePermissions // NOT &
     ) -> Result<(), Error> {
         let result = self.roles.update_one(doc! {"id": id}, doc! {"$set": {
             "name": name,
             "extends": extends,
             "editors": editors,
             "permissions": {
-                "change_roles": permissions.change_roles.clone(),
-                "view_blocks": permissions.view_blocks.clone(),
-                "connect_blocks": permissions.connect_blocks.clone(),
-                "disconnect_blocks": permissions.disconnect_blocks.clone(),
-                "pin_block": permissions.pin_block.clone(),
-                "change_default_role": permissions.change_default_role.clone(),
-                "change_description": permissions.change_description.clone(),
-                "pin_roles": permissions.pin_roles.clone(),
-                "set_labels": permissions.set_labels
+                "change_roles": permissions.change_roles,
+                "view_blocks": permissions.view_blocks,
+                "connect_blocks": permissions.connect_blocks,
+                "disconnect_blocks": permissions.disconnect_blocks,
+                "pin_block": permissions.pin_block,
+                "change_default_role": permissions.change_default_role,
+                "change_description": permissions.change_description,
+                "pin_roles": permissions.pin_roles,
+                "set_labels": permissions.set_labels,
+                "live": permissions.live,
             }
         }}, None).await?;
         if result.modified_count == 0 {

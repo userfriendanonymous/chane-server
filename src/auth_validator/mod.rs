@@ -20,8 +20,7 @@ impl Auth {
 }
 
 pub struct AuthInfo {
-    pub name: String,
-    pub activity_table_id: String
+    pub name: String
 }
 
 #[derive(Clone, Debug)]
@@ -33,7 +32,6 @@ pub struct Keys {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AccessClaims {
     pub name: String,
-    pub activity_table_id: String,
     pub key: String,
     pub exp: usize,
 }
@@ -84,7 +82,6 @@ impl AuthValidator {
             exp,
             key: key.clone(),
             name: info.name.clone(),
-            activity_table_id: info.activity_table_id.clone()
         };
 
         let key_claims = KeyClaims {
@@ -105,7 +102,6 @@ impl AuthValidator {
     pub fn tokens_as_auth(&self, tokens: &Tokens) -> Auth {
         return Auth::Valid { info: AuthInfo { // to be removed!
             name: "epicuser".to_string(),
-            activity_table_id: "???".to_string()
         }};
 
         let access_claims = match jsonwebtoken::decode::<AccessClaims>(
@@ -130,11 +126,6 @@ impl AuthValidator {
             return Auth::Invalid("Keys don't match".to_string());
         }
 
-        Auth::Valid {
-            info: AuthInfo {
-                name: access_claims.name,
-                activity_table_id: access_claims.activity_table_id
-            }
-        }
+        Auth::Valid {info: AuthInfo {name: access_claims.name}}
     }
 }

@@ -1,11 +1,10 @@
 use std::sync::Arc;
 use actix_web::{HttpServer as ActixHttpServer, App, web::Data, HttpRequest};
 use actix_cors::Cors;
-use crate::{session_pool::{SessionPool, Session}, logger::Logger, auth_validator::Tokens, live_channel::LiveChannel};
+use crate::{session_pool::{SessionPool, Session}, logger::Logger, auth_validator::Tokens};
 
 mod api;
 mod error_handlers;
-// mod utils;
 
 fn extract_cookie_as_string(request: &HttpRequest, name: &str) -> String {
     match request.cookie(name) {
@@ -17,7 +16,6 @@ fn extract_cookie_as_string(request: &HttpRequest, name: &str) -> String {
 pub struct AppState {
     session_pool: Arc<SessionPool>,
     logger: Arc<Logger>,
-    live_channel: Arc<LiveChannel>
 }
 
 impl AppState {
@@ -48,19 +46,18 @@ impl From<std::io::Error> for Error {
 pub struct HttpServer {
     session_pool: Arc<SessionPool>,
     logger: Arc<Logger>,
-    live_channel: Arc<LiveChannel>
 }
 
 impl HttpServer {
-    pub fn new(session_pool: Arc<SessionPool>, logger: Arc<Logger>, live_channel: Arc<LiveChannel>) -> Self {
-        Self {session_pool, logger, live_channel}
+    pub fn new(session_pool: Arc<SessionPool>, logger: Arc<Logger>) -> Self {
+        Self {session_pool, logger}
     }
 
-    pub async fn run(&self) -> Result<(), Error> {
+    pub async fn run(self: Arc<Self>) {
+        let this = self.clone();
         let app_state = Data::new(AppState {
-            logger: self.logger.clone(),
-            session_pool: self.session_pool.clone(),
-            live_channel: self.live_channel.clone()
+            logger: this.logger.clone(),
+            session_pool: this.session_pool.clone(),
         });
 
         ActixHttpServer::new(move || {
@@ -74,11 +71,9 @@ impl HttpServer {
             .app_data(app_state.clone())
             .service(api::service())
         })
-        .bind(("127.0.0.1", 5000)).map_err(Error::FailedToBind)?
+        .bind(("127.0.0.1", 5000)).map_err(Error::FailedToBind).unwrap()
         .run()
-        .await?;
-
-        Ok(())
+        .await.unwrap();
     }
 }
 

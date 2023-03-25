@@ -57,7 +57,7 @@ pub struct ChangeBody {
 #[put("/{id}")]
 pub async fn change(app_state: AppStateData, id: Path<String>, body: Json<ChangeBody>, req: HttpRequest) -> HttpResponse {
     let session = app_state.session_from_request(&req);
-    match session.change_role(id.as_str(), &body.name, &body.extends, &body.editors, &body.permissions).await {
+    match session.change_role(id.as_str(), &body.name, &body.extends, &body.editors, body.permissions.clone()).await {
         Ok(()) => HttpResponse::Ok().json(json!({
             "message": "success"
         })),

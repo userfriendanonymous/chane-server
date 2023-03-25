@@ -1,12 +1,14 @@
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use serde::Serialize;
 use async_trait::async_trait;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, mpsc::{UnboundedReceiver, UnboundedSender, self}};
+
+use crate::logger::Logger;
 
 type PeerShared = Arc<dyn Peer + Send + Sync>;
 type Channels = HashMap<String, HashMap<i64, PeerShared>>;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 #[serde(tag = "topic", content = "data", rename = "snake_case")]
 pub enum LiveMessage {
     BlockConnected {
@@ -30,9 +32,10 @@ pub trait Peer {
     async fn receive_message(&self, message: &LiveMessage);
 }
 
+#[derive(Clone)]
 pub struct Handle {
-    channel_id: String,
-    peer_id: i64,
+    pub channel_id: String,
+    pub peer_id: i64,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -43,18 +46,39 @@ pub enum DisconnectError {
     PeerNotFound(i64)
 }
 
-#[derive(Default)]
+type MpscMessage = (String, LiveMessage);
+
 pub struct LiveChannel {
     channels: Mutex<Channels>,
-    peer_id: Mutex<i64>
+    logger: Arc<Logger>,
+    peer_id: Mutex<i64>,
+    receiver: Mutex<UnboundedReceiver<MpscMessage>>,
+    sender: UnboundedSender<MpscMessage>
 }
 
 impl LiveChannel {
-    pub async fn receive_message(&self, channel_id: &str, message: &LiveMessage) {
+    pub fn new(logger: Arc<Logger>) -> Self {
+        let (sender, receiver) = mpsc::unbounded_channel();
+        Self {
+            receiver: Mutex::new(receiver),
+            sender,
+            channels: Default::default(),
+            peer_id: Default::default(),
+            logger
+        }
+    }
+
+    pub fn receive_message(&self, channel_id: &str, message: &LiveMessage) {
+        if let Err(error) = self.sender.send((channel_id.to_string(), message.clone())) {
+            self.logger.log(error.to_string());
+        }
+    }
+
+    async fn handle_message(&self, channel_id: &str, message: &LiveMessage) {
         let empty_peers = HashMap::new();
         let channels = self.channels.lock().await;
         let peers = channels.get(channel_id).unwrap_or(&empty_peers);
-        for (id, peer) in peers {
+        for peer in peers.values() {
             peer.receive_message(message).await
         }
     }
@@ -63,7 +87,7 @@ impl LiveChannel {
         let mut peer_id = self.peer_id.lock().await;
         let handle = Handle {
             channel_id: channel_id.to_string(),
-            peer_id: *peer_id
+            peer_id: *peer_id,
         };
 
         let mut channels = self.channels.lock().await;
@@ -84,8 +108,15 @@ impl LiveChannel {
 
     pub async fn disconnect(&self, handle: Handle) -> Result<(), DisconnectError> {
         let mut channels = self.channels.lock().await;
-        let channel = channels.get_mut(handle.channel_id.as_str()).ok_or(DisconnectError::ChannelNotFound(handle.channel_id))?;
+        let channel = channels.get_mut(handle.channel_id.as_str()).ok_or(DisconnectError::ChannelNotFound(handle.channel_id.clone()))?;
         channel.remove(&handle.peer_id).ok_or(DisconnectError::PeerNotFound(handle.peer_id))?;
         Ok(())
+    }
+
+    pub async fn run(&self){
+        let mut receiver = self.receiver.lock().await;
+        while let Some((channel_id, message)) = receiver.recv().await {
+            self.handle_message(channel_id.as_str(), &message).await;
+        }
     }
 }

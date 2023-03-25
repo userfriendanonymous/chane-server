@@ -17,12 +17,16 @@ impl Logger {
         }
     }
 
-    pub fn log(&self, log: &str){
-        self.sender.send(log.to_string());
+    pub fn log(&self, log: String){
+        if let Err(error) = self.sender.send(log) {
+            println!("[failed to send log message]:\n{log}\n[error]:\n{error}")
+        }
     }
 
-    pub async fn log_many(&self, logs: &[String]){
-        logs.iter().for_each(|log| self.log(log));
+    pub async fn log_many(&self, logs: Vec<String>){
+        for log in logs {
+            self.log(log);
+        }
     }
 
     pub async fn run(&self){

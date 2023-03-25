@@ -4,43 +4,48 @@ use super::{DbPool, Error, utils::as_object_id};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum Activity {
-    ChannelCreated {
-        by: String,
-        id: String,
+    User {
+        activity: UserActivity
     },
-    BlockCreated {
-        by: String,
-        id: String,
+    Channel {
+        activity: ChannelActivity
     },
-    RoleCreated {
-        by: String,
-        id: String
-    },
-    UserJoined {
-        name: String,
-    },
-    BlockChanged {
-        by: String,
-        id: String,
-    },
-    BlockConnected {
-        by: String,
-        id: String,
-    },
-    BlockConnectedToChannel {
-        by: String,
-        to: String,
-        id: String,
-    },
-    BlockDisconnected {
-        by: String,
-        id: String,
-    },
-    BlockDisconnectedFromChannel {
-        by: String,
-        from: String,
-        id: String,
+    Global {
+        activity: GlobalActivity
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum UserActivity {
+    ChannelCreated {id: String},
+    BlockCreated {id: String},
+    Joined,
+    RoleCreated {id: String},
+    ChannelBlockPinned {block_id: Option<String>, id: String},
+    ChannelDescriptionChanged {id: String},
+    BlockConnectedToChannel {block_id: String, id: String},
+    BlockDisconnectedFromChannel {block_id: String, id: String},
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ChannelActivity {
+    Created,
+    BlockConnected {by: String, id: String},
+    BlockDisconnected {by: String, id: String},
+    BlockPinned {by: String, id: Option<String>},
+    DescriptionChanged {by: String},
+    LabelsChanged {by: String},
+    RolesChanged {by: String},
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum GlobalActivity {
+    ChannelCreated {by: String, id: String},
+    BlockCreated {by: String, id: String},
+    Joined {by: String},
+    ChannelBlockPinned {by: String, id: Option<String>, channel_id: String},
+    ChannelDescriptionChanged {by: String, id: String},
+    BlockChanged {by: String, id: String},
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -51,10 +56,10 @@ pub struct ActivityTable {
 }
 
 impl DbPool {
-    pub async fn create_activity_table(&self, items: &[Activity]) -> Result<String, Error> {
+    pub async fn create_activity_table(&self) -> Result<String, Error> {
         let document = ActivityTable {
             id: None,
-            items: items.to_vec()
+            items: Vec::new()
         };
         let result = self.activity_tables.insert_one(document, None).await?;
         Ok(result.inserted_id.to_string())

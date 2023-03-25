@@ -5,7 +5,7 @@ pub use users::User;
 pub use channels::{Channel, ChannelType};
 pub use blocks::Block;
 pub use roles::{Role, RolePermissions};
-pub use activity_table::{ActivityTable, Activity};
+pub use activity_table::{ActivityTable, Activity, UserActivity, ChannelActivity, GlobalActivity};
 
 mod blocks;
 mod channels;

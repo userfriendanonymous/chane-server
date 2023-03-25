@@ -12,23 +12,10 @@ mod db_pool;
 mod http_server;
 mod session_pool;
 mod shared;
-mod app;
 mod live_channel;
 mod logger;
 mod auth_validator;
 mod activity_logger;
-
-
-// #[actix_web::main]
-// async fn main() {
-//     dotenv::dotenv().ok();
-//     http_server::launch(
-//         AuthKeys {
-//             access: std::env::var("ACCESS_KEY").unwrap(),
-//             key: std::env::var("KEY_KEY").unwrap()
-//         }
-//     ).await.unwrap();
-// }
 
 #[tokio::main]
 async fn main(){
@@ -41,16 +28,25 @@ async fn main(){
     let auth_validator = Arc::new(AuthValidator::new(&auth_keys));
     let logger = Arc::new(Logger::new());
     let db_pool = Arc::new(DbPool::new().await.unwrap());
-    let live_channel = Arc::new(LiveChannel::default());
+    let live_channel = Arc::new(LiveChannel::new(logger.clone()));
     let activity_logger = Arc::new(ActivityLogger::new(db_pool.clone(), logger.clone()));
-    let session_pool = Arc::new(SessionPool::new(db_pool.clone(), auth_validator.clone(), live_channel.clone(), activity_logger.clone())); // everything.clone()
-    let http_server = HttpServer::new(session_pool.clone(), logger.clone(), live_channel.clone());
+    let session_pool = Arc::new(SessionPool::new(db_pool, auth_validator.clone(), live_channel.clone(), activity_logger.clone(), logger.clone())); // everything.clone()
+    let http_server = Arc::new(HttpServer::new(session_pool, logger.clone()));
 
-    let (http_server_result, (), ()) = tokio::join!(
-        http_server.run(),
-        logger.run(),
-        activity_logger.run()
-    );
+    let handle = std::thread::spawn(|| {
+        let system = actix::System::new();
+        system.block_on(async move {
+            http_server.run().await;
+        });
+    });
+    println!("run http server");
 
-    http_server_result.unwrap();
+    tokio_scoped::scope(|scope| {
+        scope.spawn(logger.run());
+        scope.spawn(activity_logger.run());
+        scope.spawn(live_channel.run());
+    });
+
+    handle.join().unwrap();
+    dbg!("run all");
 }

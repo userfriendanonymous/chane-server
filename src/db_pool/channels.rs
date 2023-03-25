@@ -14,6 +14,7 @@ pub struct Channel {
     pub description: String,
     pub pinned_block: String,
     pub title: String,
+    pub activity_table: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -34,7 +35,7 @@ impl DbPool {
         }
     }
 
-    pub async fn create_channel(&self, _type: &ChannelType, title: &str, description: &str, roles: &[(String, String)], default_role: &str, labels: &[String]) -> Result<String, Error> {
+    pub async fn create_channel(&self, _type: &ChannelType, title: &str, description: &str, roles: &[(String, String)], default_role: &str, labels: &[String], activity_table: &str) -> Result<String, Error> {
         let model = Channel {
             id: None,
             _type: _type.clone(),
@@ -43,7 +44,8 @@ impl DbPool {
             labels: labels.to_owned(),
             description: description.to_owned(),
             pinned_block: "".to_owned(),
-            title: title.to_string()
+            title: title.to_string(),
+            activity_table: activity_table.to_string()
         };
         let result = self.channels.insert_one(model, None).await?;
         Ok(result.inserted_id.to_string())

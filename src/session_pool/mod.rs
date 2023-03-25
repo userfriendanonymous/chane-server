@@ -1,4 +1,4 @@
-use crate::{db_pool::{self, DbPool}, auth_validator::{AuthValidator, Tokens, Auth, AuthInfo}, live_channel::LiveChannel, activity_logger::ActivityLogger};
+use crate::{db_pool::{self, DbPool}, auth_validator::{AuthValidator, Tokens, Auth, AuthInfo}, live_channel::LiveChannel, activity_logger::ActivityLogger, logger::Logger};
 use std::sync::Arc;
 pub use roles::{RoleWrappedError, CreateRoleError};
 pub use blocks::Block;
@@ -10,6 +10,7 @@ mod blocks;
 mod channels;
 mod groups;
 mod roles;
+mod live;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -30,18 +31,20 @@ pub struct Session {
     live_channel: Arc<LiveChannel>,
     auth_validator: Arc<AuthValidator>,
     activity_logger: Arc<ActivityLogger>,
-    auth: Auth
+    auth: Auth,
+    logger: Arc<Logger>
 }
 
 impl Session {
-    pub fn new(db_pool: Arc<DbPool>, auth_validator: Arc<AuthValidator>, live_channel: Arc<LiveChannel>, activity_logger: Arc<ActivityLogger>, tokens: &Tokens) -> Self {
+    pub fn new(tokens: &Tokens, db_pool: Arc<DbPool>, auth_validator: Arc<AuthValidator>, live_channel: Arc<LiveChannel>, activity_logger: Arc<ActivityLogger>, logger: Arc<Logger>) -> Self {
         let auth = auth_validator.tokens_as_auth(tokens);
         Self {
             db_pool,
             auth_validator,
             auth,
             live_channel,
-            activity_logger
+            activity_logger,
+            logger
         }
     }
 
@@ -55,14 +58,15 @@ pub struct SessionPool {
     auth_validator: Arc<AuthValidator>,
     live_channel: Arc<LiveChannel>,
     activity_logger: Arc<ActivityLogger>,
+    logger: Arc<Logger>
 }
 
 impl SessionPool {
-    pub fn new(db_pool: Arc<DbPool>, auth_validator: Arc<AuthValidator>, live_channel: Arc<LiveChannel>, activity_logger: Arc<ActivityLogger>) -> Self {
-        Self {db_pool, auth_validator, live_channel, activity_logger}
+    pub fn new(db_pool: Arc<DbPool>, auth_validator: Arc<AuthValidator>, live_channel: Arc<LiveChannel>, activity_logger: Arc<ActivityLogger>, logger: Arc<Logger>) -> Self {
+        Self {db_pool, auth_validator, live_channel, activity_logger, logger}
     }
 
     pub fn spawn_session(&self, tokens: &Tokens) -> Session {
-        Session::new(self.db_pool.clone(), self.auth_validator.clone(), self.live_channel.clone(), self.activity_logger.clone(), tokens)
+        Session::new(tokens, self.db_pool.clone(), self.auth_validator.clone(), self.live_channel.clone(), self.activity_logger.clone(), self.logger.clone())
     }
 }

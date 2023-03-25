@@ -63,7 +63,7 @@ impl Session {
         Ok(self.db_pool.create_role(name, &auth.name, extends, editors, permissions).await?)
     }
 
-    pub async fn change_role(&self, id: &str, name: &str, extends: &[String], editors: &[String], permissions: &RolePermissions) -> Result<(), GeneralError> {
+    pub async fn change_role(&self, id: &str, name: &str, extends: &[String], editors: &[String], permissions: RolePermissions) -> Result<(), GeneralError> {
         let auth = self.auth()?;
         let role = self.db_pool.get_role(id).await?;
 
@@ -190,6 +190,9 @@ impl<'a> RolePermissionValidator<'a> {
     }
     pub fn can_pin_roles(&self) -> bool {
         catch_vec_intersection(self.labels, &self.permissions.pin_roles)
+    }
+    pub fn can_live(&self) -> bool {
+        catch_vec_intersection(self.labels, &self.permissions.live)
     }
     pub fn can_set_labels(&self) -> bool {
         self.permissions.set_labels
