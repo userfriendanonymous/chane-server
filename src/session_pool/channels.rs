@@ -1,10 +1,13 @@
 use serde::{Serialize, Deserialize};
+use ts_rs::TS;
 use crate::{db_pool::{self, ChannelType}, session_pool::{roles::RolePermissionValidator, Block}, live_channel::LiveMessage, activity_logger::Activity};
 use super::{Session, Error as GeneralError, roles::{resolve_user_role, RoleWrappedError}};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Channel {
     pub id: String,
+    #[serde(rename = "type")]
     pub _type: ChannelType,
     pub roles: Vec<(String, String)>,
     pub default_role: String,
@@ -49,7 +52,7 @@ impl Session {
             self.activity_logger.log(Activity::BlockConnectedToChannel { block_id: block_id.to_string(), id: id.to_string(), by: auth.name.clone() });
             Ok(())
         } else {
-            Err(GeneralError::Unauthorized("you don't have permissions to connect blocks".to_owned()).into())
+            Err(GeneralError::Unauthorized.into())
         }
     }
 
@@ -66,7 +69,7 @@ impl Session {
             self.activity_logger.log(Activity::BlockDisconnectedFromChannel { block_id: block_id.to_string(), id: id.to_string(), by: auth.name.to_string() });
             Ok(())
         } else {
-            Err(GeneralError::Unauthorized("you don't have permissions to disconnect blocks".to_owned()).into())
+            Err(GeneralError::Unauthorized.into())
         }
     }
 
@@ -82,7 +85,7 @@ impl Session {
             self.activity_logger.log(Activity::BlockPinnedOnChannel { block_id: block_id.clone(), id: id.to_string(), by: auth.name.clone() });
             Ok(())
         } else {
-            Err(GeneralError::Unauthorized("you don't have permission to pin block".to_owned()).into())
+            Err(GeneralError::Unauthorized.into())
         }
     }
 
@@ -97,7 +100,7 @@ impl Session {
             self.activity_logger.log(Activity::ChannelDescriptionChanged { id: id.to_string(), by: auth.name.clone() });
             Ok(())
         } else {
-            Err(GeneralError::Unauthorized("you don't have permissions to change channel description".to_owned()).into())
+            Err(GeneralError::Unauthorized.into())
         }
     }
 
@@ -111,7 +114,7 @@ impl Session {
             self.activity_logger.log(Activity::ChannelLabelsChanged { id: id.to_string(), by: auth.name.clone() });
             Ok(())
         } else {
-            Err(GeneralError::Unauthorized("you don't have permissions to set channel labels".to_owned()).into())
+            Err(GeneralError::Unauthorized.into())
         }
     }
 
@@ -129,7 +132,7 @@ impl Session {
             Ok((blocks, blocks_errors))
             
         } else {
-            Err(GeneralError::Unauthorized("you don't have permissions to view blocks of this channel".to_owned()).into())
+            Err(GeneralError::Unauthorized.into())
         }
     }
 }

@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use ts_rs::TS;
 use super::{DbPool, Error, utils::as_object_id};
 use mongodb::bson::{doc, oid::ObjectId};
 
@@ -17,7 +18,8 @@ pub struct Channel {
     pub activity_table: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, TS)]
+#[ts(export)]
 pub enum ChannelType {
     #[serde(rename = "server_hosted")]
     ServerHosted,

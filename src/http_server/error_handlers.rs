@@ -3,6 +3,16 @@ use crate::session_pool::{self, Error as SessionError, RoleWrappedError, Registe
 use crate::db_pool::Error as DbError;
 use serde_json::json;
 
+pub enum Error {
+    Db,
+    Unauthorized (String),
+    Role (RoleError),
+}
+
+pub enum RoleError {
+    Recursion
+}
+
 impl From<session_pool::Error> for HttpResponse {
     fn from(error: session_pool::Error) -> Self {
         match error {

@@ -39,7 +39,7 @@ impl ActivityLogger {
 
     pub fn log(&self, activity: Activity){
         if let Err(error) = self.sender.send(activity) {
-            self.logger.log(error.to_string().as_str());
+            self.logger.log(error.to_string());
         }
     }
 
@@ -61,11 +61,11 @@ impl ActivityLogger {
         while let Some(activity) = receiver.recv().await {
             for (activity_tables_of, activities) in activity.process_into() {
                 match self.resolve_activity_tables_of(&activity_tables_of).await {
-                    Err(e) => self.logger.log(&e.to_string()),
+                    Err(e) => self.logger.log(e.to_string()),
                     Ok(activity_tables_ids) => {
                         for activity_table_id in activity_tables_ids {
                             if let Err(e) = self.db_pool.push_to_activity_table(&activity_table_id, &activities).await {
-                                self.logger.log(&e.to_string());
+                                self.logger.log(e.to_string());
                             }
                         }
                     }

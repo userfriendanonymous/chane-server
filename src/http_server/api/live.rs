@@ -3,8 +3,8 @@ use std::sync::Arc;
 use actix_web::{HttpRequest, web::{self, Path}, HttpResponse, get};
 use serde_json::json;
 use tokio::sync::Mutex;
-use crate::{live_channel::{self, LiveMessage}, logger::Logger};
-use super::super::AppStateData;
+use crate::{live_channel::{self, LiveMessage}, logger::Logger, http_server::errors::TransResponse};
+use super::{AppStateData, Response, errors::ResultResponse};
 use async_trait::async_trait;
 
 // #[derive(thiserror::Error, Debug)]
@@ -34,7 +34,14 @@ struct WebsocketPeer {
 #[async_trait]
 impl live_channel::Peer for WebsocketPeer {
     async fn receive_message(&self, message: &LiveMessage) {
-        if let Err(error) = self.session.lock().await.text("receive").await {
+        if let Err(error) = self.session.lock().await.text(
+            match serde_json::to_string(&message).map_err(|error| { // rust is flexible with this but now it's quite hard to understand what exactly is going on here..
+                self.logger.log(error.to_string());
+            }) {
+                Ok(data) => data,
+                Err(()) => return
+            }
+        ).await {
             self.logger.log(error.to_string());
         }
     }
@@ -45,7 +52,7 @@ pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::P
     let session = app_state.session_from_request(&request);
     let handle = match session.live(&id).await {
         Ok(handle) => handle,
-        Err(error) => return error.into()
+        Err(error) => return HttpResponse::InternalServerError().json(json!({"message": "this is wip"}))
     };
 
     let (response, session, mut message_stream) = match actix_ws::handle(&request, body) {

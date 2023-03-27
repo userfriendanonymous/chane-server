@@ -7,6 +7,7 @@ use http_server::HttpServer;
 use live_channel::LiveChannel;
 use logger::Logger;
 use session_pool::SessionPool;
+use ts_rs::TS;
 
 mod db_pool;
 mod http_server;

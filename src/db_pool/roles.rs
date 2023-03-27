@@ -1,4 +1,5 @@
 use serde::{Serialize, Deserialize};
+use ts_rs::TS;
 use super::{Error, DbPool, utils::as_object_id};
 use mongodb::bson::{doc, oid::ObjectId};
 
@@ -13,7 +14,8 @@ pub struct Role {
     pub permissions: RolePermissions
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, TS)]
+#[ts(export)]
 pub struct RolePermissions {
     pub change_roles: Vec<String>,
     pub view_blocks: Vec<String>,

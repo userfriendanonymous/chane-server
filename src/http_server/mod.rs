@@ -4,7 +4,7 @@ use actix_cors::Cors;
 use crate::{session_pool::{SessionPool, Session}, logger::Logger, auth_validator::Tokens};
 
 mod api;
-mod error_handlers;
+mod errors;
 
 fn extract_cookie_as_string(request: &HttpRequest, name: &str) -> String {
     match request.cookie(name) {

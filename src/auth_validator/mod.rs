@@ -2,23 +2,36 @@ use jsonwebtoken::{Algorithm, EncodingKey, DecodingKey, Validation};
 use rand::Rng;
 use serde::{Serialize, Deserialize};
 
+#[derive(Clone)]
 pub enum Auth {
     Valid {
         info: AuthInfo
     },
-    Invalid(String),
+    Invalid(InvalidAuthData),
+}
+
+#[derive(Clone)]
+pub enum InvalidAuthData {
+    Token (InvalidAuthTokenData),
+    MismatchedKeys
+}
+#[derive(Clone)]
+pub enum InvalidAuthTokenData {
+    Access,
+    Key
 }
 
 impl Auth {
-    pub fn as_result(&self) -> Result<&AuthInfo, String>
+    pub fn as_result(&self) -> Result<&AuthInfo, InvalidAuthData>
     {
         match self {
             Auth::Valid { info } => Ok(info),
-            Auth::Invalid(reason) => Err(reason.clone())
+            Auth::Invalid(data) => Err(data.clone())
         }
     }
 }
 
+#[derive(Clone)]
 pub struct AuthInfo {
     pub name: String
 }
@@ -110,7 +123,7 @@ impl AuthValidator {
             &Validation::new(Algorithm::HS512)
         ) {
             Ok(claims) => claims,
-            Err(error) => return Auth::Invalid(format!("access token - {error}"))
+            Err(error) => return Auth::Invalid(InvalidAuthData::Token(InvalidAuthTokenData::Access))
         }.claims;
 
         let key_claims = match jsonwebtoken::decode::<KeyClaims>(
@@ -119,11 +132,11 @@ impl AuthValidator {
             &Validation::new(Algorithm::HS512)
         ) {
             Ok(claims) => claims,
-            Err(error) => return Auth::Invalid(format!("key token - {error}"))
+            Err(error) => return Auth::Invalid(InvalidAuthData::Token(InvalidAuthTokenData::Key))
         }.claims;
 
         if key_claims.key != access_claims.key {
-            return Auth::Invalid("Keys don't match".to_string());
+            return Auth::Invalid(InvalidAuthData::MismatchedKeys);
         }
 
         Auth::Valid {info: AuthInfo {name: access_claims.name}}

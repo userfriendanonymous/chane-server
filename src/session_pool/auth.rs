@@ -1,31 +1,10 @@
 use crate::{db_pool, auth_validator::{Auth, Tokens, AuthInfo, InfoAsTokensError}};
 use crate::activity_logger::Activity;
-
 use super::{Session, Error as GeneralError};
-use serde::Serialize;
 use pwhash::bcrypt;
+use ts_rs::TS;
 
 const NAME_CHARS: &str = "QAZWSXEDCRFVTGBYHNUJMIKOLPqazwsxedcrfvtgbyhnujmikolp1234567890_";
-
-#[derive(Serialize)]
-#[serde(tag = "is", content = "data", rename = "snake_case")]
-pub enum AuthPublic {
-    Valid {
-        name: String
-    },
-    Invalid {
-        reason: String
-    }
-}
-
-impl AuthPublic {
-    pub fn from_auth(auth: &Auth) -> Self {
-        match auth {
-            Auth::Valid { ref info } => Self::Valid { name: info.name.clone() },
-            Auth::Invalid(ref reason) => Self::Invalid { reason: reason.clone() }
-        }
-    }
-}
 
 #[derive(thiserror::Error, Debug)]
 pub enum RegisterError {
@@ -46,7 +25,7 @@ pub enum RegisterError {
     #[error("failed to convert info to tokens: {0}")]
     InfoAsTokens(InfoAsTokensError),
     #[error("failed to hash password: {0}")]
-    Hashing(String)
+    Hashing(pwhash::error::Error)
 }
 impl From<db_pool::Error> for RegisterError {
     fn from(value: db_pool::Error) -> Self {
@@ -56,6 +35,11 @@ impl From<db_pool::Error> for RegisterError {
 impl From<InfoAsTokensError> for RegisterError {
     fn from(value: InfoAsTokensError) -> Self {
         Self::InfoAsTokens(value)
+    }
+}
+impl From<pwhash::error::Error> for RegisterError {
+    fn from(value: pwhash::error::Error) -> Self {
+        Self::Hashing(value)
     }
 }
 
@@ -79,23 +63,14 @@ impl From<InfoAsTokensError> for LoginError {
     }
 }
 
-fn hash_password(password: &str) -> Result<String, String> {
-    bcrypt::hash(password)
-    .map_err(|error| error.to_string())
-}
-
-fn compare_password(password: &str, hash: &str) -> bool {
-    bcrypt::verify(password, hash)
-}
-
 impl Session {
-    pub async fn me(&self) -> AuthPublic {
-        AuthPublic::from_auth(&self.auth)
+    pub async fn me(&self) -> Auth {
+        self.auth.clone()
     }
 
     pub async fn login(&self, name: &str, password: &str) -> Result<Tokens, LoginError> {
         let user = self.db_pool.get_user(name).await?;
-        if !compare_password(password, user.password_hash.as_str()) {
+        if !bcrypt::verify(password, user.password_hash.as_str()) {
             return Err(LoginError::InvalidCredentials);
         }
 
@@ -130,7 +105,7 @@ impl Session {
             return Err(RegisterError::NameTaken);
         }
 
-        let password_hash = hash_password(password).map_err(RegisterError::Hashing)?;
+        let password_hash = bcrypt::hash(password)?;
         let tokens = self.auth_validator.info_as_tokens(&AuthInfo {
             name: name.to_string(),
         })?;

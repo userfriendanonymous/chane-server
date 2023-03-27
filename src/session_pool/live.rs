@@ -3,7 +3,7 @@ use tokio::sync::Mutex;
 use crate::{live_channel::{self, LiveChannel}, logger::Logger};
 use super::{Session, roles::{resolve_user_role, RolePermissionValidator}, Error as GeneralError, RoleWrappedError};
 
-struct Handle {
+pub struct Handle {
     live_channel: Arc<LiveChannel>,
     channel_id: String,
     handle: Mutex<Option<live_channel::Handle>>,
@@ -17,13 +17,10 @@ impl Handle {
     }
 
     pub async fn disconnect(self){
-        match match &*self.handle.lock().await { // is this even legal lol
+        if let Err(error) = match &*self.handle.lock().await {
             Some(handle) => self.live_channel.disconnect(handle.clone()).await,
             None => panic!("[live channel session failed to find handle, called disconnected without connecting]")
-        } {
-            Err(error) => self.logger.log(error.to_string()),
-            _ => {}
-        }
+        } { self.logger.log(error.to_string()) }
     }
 }
 
@@ -34,7 +31,7 @@ impl Session {
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);
 
         if !validator.can_live() {
-            return Err(GeneralError::Unauthorized("you don't have permissions to go live on this channel".to_string()).into());
+            return Err(GeneralError::Unauthorized.into());
         }
         
         let handle = Handle {

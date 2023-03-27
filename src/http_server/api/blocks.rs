@@ -1,7 +1,8 @@
-use actix_web::{Scope, web::{self, Json, Path}, Responder, HttpResponse, get, post, HttpRequest};
+use actix_web::{Scope, web::{self, Json, Path}, get, post, HttpRequest};
 use serde::Deserialize;
-use serde_json::json;
-use super::super::AppStateData;
+use ts_rs::TS;
+use crate::session_pool;
+use super::{AppStateData, errors::{Response, ResultResponse, general::GeneralError}};
 
 pub fn service() -> Scope {
     web::scope("/blocks")
@@ -10,39 +11,57 @@ pub fn service() -> Scope {
     .service(change)
 }
 
+type GetOneResponse = ResultResponse<session_pool::Block, GeneralError>;
+#[derive(TS)]
+#[ts(export, rename = "GetBlockResponse")]
+struct GetOneResponseExport(GetOneResponse);
+
 #[get("/{id}")]
-async fn get_one(app_state: AppStateData, id: Path<String>, req: HttpRequest) -> impl Responder {
+async fn get_one(app_state: AppStateData, id: Path<String>, req: HttpRequest) -> Response<GetOneResponse> {
     let session = app_state.session_from_request(&req);
     match session.get_block(id.as_str()).await {
-        Ok(block) => HttpResponse::Ok().json(block),
-        Err(error) => HttpResponse::from(error)
+        Ok(block) => Response::ok_ok(block),
+        Err(error) => Response::err_err(error.into())
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export, rename = "CreateBlockBody")]
 pub struct CreateBody {
     pub content: String,
 }
 
-#[post("/")]
-async fn create(app_state: AppStateData, body: Json<CreateBody>, req: HttpRequest) -> impl Responder {
+type CreateResponse = ResultResponse<String, GeneralError>;
+#[derive(TS)]
+#[ts(export, rename = "CreateBlockResponse")]
+struct CreateResponseExport(CreateResponse);
+
+#[post("/create")]
+async fn create(app_state: AppStateData, body: Json<CreateBody>, req: HttpRequest) -> Response<CreateResponse> {
     let session = app_state.session_from_request(&req);
     match session.create_block(body.content.as_str()).await {
-        Ok(id) => HttpResponse::Ok().json(json!({"id": id})),
-        Err(error) => HttpResponse::from(error)
+        Ok(id) => Response::ok_ok(id),
+        Err(error) => Response::err_err(error.into())
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export, rename = "ChangeBlockBody")]
 pub struct ChangeBody {
     pub content: String,
+    pub id: String
 }
 
-#[post("/{id}")]
-async fn change(app_state: AppStateData, id: Path<String>, body: Json<CreateBody>, req: HttpRequest) -> impl Responder {
+type ChangeResponse = ResultResponse<(), GeneralError>;
+#[derive(TS)]
+#[ts(export, rename = "ChangeBlockResponse")]
+struct ChangeResponseExport(ChangeResponse);
+
+#[post("/change")]
+async fn change(app_state: AppStateData, body: Json<ChangeBody>, req: HttpRequest) -> Response<ChangeResponse> {
     let session = app_state.session_from_request(&req);
-    match session.change_block(id.as_str(), body.content.as_str()).await {
-        Ok(()) => HttpResponse::Ok().json(json!({"message": "success"})),
-        Err(error) => HttpResponse::from(error)
+    match session.change_block(body.id.as_str(), body.content.as_str()).await {
+        Ok(()) => Response::ok_ok(()),
+        Err(error) => Response::err_err(error.into())
     }
 }

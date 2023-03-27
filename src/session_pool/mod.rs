@@ -1,8 +1,10 @@
 use crate::{db_pool::{self, DbPool}, auth_validator::{AuthValidator, Tokens, Auth, AuthInfo}, live_channel::LiveChannel, activity_logger::ActivityLogger, logger::Logger};
 use std::sync::Arc;
-pub use roles::{RoleWrappedError, CreateRoleError};
+pub use roles::{RoleWrappedError, CreateRoleError, Role, RoleError};
 pub use blocks::Block;
 pub use auth::{RegisterError, LoginError};
+pub use channels::Channel;
+pub use users::User;
 
 mod auth;
 mod users;
@@ -14,10 +16,10 @@ mod live;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("db error: {0:?}")]
+    #[error("db ( {0:?} )")]
     Db(db_pool::Error),
-    #[error("unauthorized: {0}")]
-    Unauthorized(String),
+    #[error("unauthorized")]
+    Unauthorized,
 }
 
 impl From<db_pool::Error> for Error {
@@ -49,7 +51,7 @@ impl Session {
     }
 
     fn auth(&self) -> Result<&AuthInfo, Error> {
-        self.auth.as_result().map_err(Error::Unauthorized)
+        self.auth.as_result().map_err(|_| Error::Unauthorized)
     }
 }
 

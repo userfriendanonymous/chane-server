@@ -1,10 +1,11 @@
 use std::sync::Arc;
-
 use serde::{Serialize, Deserialize};
+use ts_rs::TS;
 use crate::db_pool::{self, RolePermissions, Channel, DbPool};
 use super::{Error as GeneralError, Session};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Role {
     pub id: String,
     pub owner: String,
@@ -72,27 +73,36 @@ impl Session {
         } else if role.editors.contains(&auth.name) {
             None
         } else {
-            return Err(GeneralError::Unauthorized("You don't have permissions to edit this role".to_owned()))
+            return Err(GeneralError::Unauthorized)
         };
         
-        self.db_pool.change_role(id, name, extends, &editors, permissions).await.map_err(GeneralError::Db)
+        Ok(self.db_pool.change_role(id, name, extends, &editors, permissions).await?)
     }
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum RoleWrappedError {
-    #[error("Recursion detected at: {0}")]
-    Recursion(String),
+    #[error("Role: {0}")]
+    Role(RoleError),
     #[error("General: {0}")]
     General(GeneralError),
 }
 
-impl From<GeneralError> for RoleWrappedError { // BRILLIANT! BYE, ".map_err(...)"
+#[derive(thiserror::Error, Debug)]
+pub enum RoleError {
+    #[error("Recursion detected at: {0}")]
+    Recursion(String),
+}
+impl From<RoleError> for RoleWrappedError {
+    fn from(value: RoleError) -> Self {
+        Self::Role(value)
+    }
+}
+impl From<GeneralError> for RoleWrappedError {
     fn from(value: GeneralError) -> Self {
         Self::General(value)
     }
 }
-
 impl From<db_pool::Error> for RoleWrappedError {
     fn from(value: db_pool::Error) -> Self {
         Self::General(GeneralError::Db(value))
@@ -130,7 +140,7 @@ pub async fn resolve_role_permissions(db_pool: Arc<DbPool>, id: &str, permission
 
         for role_id in role.extends.iter() {
             if processed_role_ids.contains(role_id){
-                return Err(RoleWrappedError::Recursion(role_id.to_string()));
+                return Err(RoleWrappedError::Role(RoleError::Recursion(role_id.to_string())));
             } else {
                 role_ids.push(role_id.to_string());
                 processed_role_ids.push(role_id.to_string());

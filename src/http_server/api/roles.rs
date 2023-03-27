@@ -1,9 +1,9 @@
-use actix_web::{Scope, web::{self, Path, Json}, get, post, put, HttpResponse, HttpRequest};
+use actix_web::{Scope, web::{self, Path, Json}, get, post, put, HttpRequest};
 use serde::Deserialize;
-use serde_json::json;
-use crate::{db_pool::RolePermissions, session_pool::CreateRoleError};
+use ts_rs::TS;
+use crate::{db_pool::RolePermissions, session_pool::Role};
 
-use super::super::AppStateData;
+use super::{AppStateData, Response, errors::{ResultResponse, general::GeneralError, roles::CreateRoleError}};
 
 pub fn service() -> Scope {
     web::scope("/roles")
@@ -12,16 +12,18 @@ pub fn service() -> Scope {
     .service(change)
 }
 
+type GetOneResponse = ResultResponse<Role, GeneralError>;
 #[get("/{id}")]
-pub async fn get_one(app_state: AppStateData, id: Path<String>, req: HttpRequest) -> HttpResponse {
+pub async fn get_one(app_state: AppStateData, id: Path<String>, req: HttpRequest) -> Response<GetOneResponse> {
     let session = app_state.session_from_request(&req);
     match session.get_role(&id).await {
-        Ok(role) => HttpResponse::Ok().json(role),
-        Err(error) => error.into()
+        Ok(role) => Response::ok_ok(role),
+        Err(error) => Response::err_err(error.into())
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(rename = "CreateRoleBody", export)]
 pub struct CreateBoby {
     name: String,
     extends: Vec<String>,
@@ -29,24 +31,18 @@ pub struct CreateBoby {
     permissions: RolePermissions
 }
 
+type CreateResponse = ResultResponse<String, CreateRoleError>;
 #[post("/")]
-pub async fn create(app_state: AppStateData, body: Json<CreateBoby>, req: HttpRequest) -> HttpResponse {
+pub async fn create(app_state: AppStateData, body: Json<CreateBoby>, req: HttpRequest) -> Response<CreateResponse> {
     let session = app_state.session_from_request(&req);
     match session.create_role(&body.name, &body.extends, &body.editors, &body.permissions).await {
-        Ok(id) => HttpResponse::Created().json(json!({
-            "id": id
-        })),
-        Err(error) => match error {
-            CreateRoleError::General(error) => error.into(),
-            CreateRoleError::RoleDoesNotExist(id, error) => HttpResponse::Forbidden().json(json!({
-                "message": format!("can't extend role that doesn't exist: {id}"),
-                "db_error_DEBUG_ONLY": error.to_string()
-            }))
-        }
+        Ok(id) => Response::ok_ok(id),
+        Err(error) => Response::err_err(error.into())
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(rename = "ChangeRoleBody", export)]
 pub struct ChangeBody {
     name: String,
     extends: Vec<String>,
@@ -54,13 +50,12 @@ pub struct ChangeBody {
     permissions: RolePermissions
 }
 
+type ChangeRoleResponse = ResultResponse<(), GeneralError>;
 #[put("/{id}")]
-pub async fn change(app_state: AppStateData, id: Path<String>, body: Json<ChangeBody>, req: HttpRequest) -> HttpResponse {
+pub async fn change(app_state: AppStateData, id: Path<String>, body: Json<ChangeBody>, req: HttpRequest) -> Response<ChangeRoleResponse> {
     let session = app_state.session_from_request(&req);
     match session.change_role(id.as_str(), &body.name, &body.extends, &body.editors, body.permissions.clone()).await {
-        Ok(()) => HttpResponse::Ok().json(json!({
-            "message": "success"
-        })),
-        Err(error) => error.into()
+        Ok(()) => Response::ok_ok(()),
+        Err(error) => Response::err_err(error.into())
     }
 }

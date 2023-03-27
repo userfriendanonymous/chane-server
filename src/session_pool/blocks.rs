@@ -1,9 +1,11 @@
 use serde::{Serialize, Deserialize};
+use ts_rs::TS;
 use crate::{db_pool, live_channel::LiveMessage, activity_logger::Activity};
 
 use super::{Session, Error as GeneralError};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct Block {
     pub id: String,
     pub content: String,
@@ -37,7 +39,7 @@ impl Session {
         let auth = self.auth()?;
         let block = self.db_pool.get_block(id).await?;
         if block.owner != auth.name {
-            return Err(GeneralError::Unauthorized("you don't have permissions to change this block".to_owned()));
+            return Err(GeneralError::Unauthorized);
         }
         self.db_pool.change_block(id, content).await?;
         

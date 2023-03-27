@@ -18,7 +18,7 @@ impl Logger {
     }
 
     pub fn log(&self, log: String){
-        if let Err(error) = self.sender.send(log) {
+        if let Err(error) = self.sender.send(log.clone()) {
             println!("[failed to send log message]:\n{log}\n[error]:\n{error}")
         }
     }

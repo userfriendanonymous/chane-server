@@ -1,8 +1,11 @@
 use serde::{Serialize, Deserialize};
 use mongodb::{bson::{doc, oid::ObjectId}};
 use super::{DbPool, Error, utils::as_object_id};
+use ts_rs::TS;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+#[serde(tag = "type", content = "data")]
 pub enum Activity {
     User {
         activity: UserActivity
@@ -15,7 +18,9 @@ pub enum Activity {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+#[serde(tag = "type", content = "data")]
 pub enum UserActivity {
     ChannelCreated {id: String},
     BlockCreated {id: String},
@@ -27,7 +32,9 @@ pub enum UserActivity {
     BlockDisconnectedFromChannel {block_id: String, id: String},
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+#[serde(tag = "type", content = "data")]
 pub enum ChannelActivity {
     Created,
     BlockConnected {by: String, id: String},
@@ -38,7 +45,9 @@ pub enum ChannelActivity {
     RolesChanged {by: String},
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, TS)]
+#[ts(export)]
+#[serde(tag = "type", content = "data")]
 pub enum GlobalActivity {
     ChannelCreated {by: String, id: String},
     BlockCreated {by: String, id: String},
