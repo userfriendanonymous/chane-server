@@ -46,7 +46,6 @@ impl From<mongodb::bson::oid::Error> for Error {
 }
 
 pub struct DbPool {
-    db: Database,
     blocks: Collection<Block>,
     users: Collection<User>,
     roles: Collection<Role>,
@@ -67,9 +66,6 @@ impl DbPool {
             roles: db.collection("roles"),
             channels: db.collection("channels"),
             activity_tables: db.collection("activity_tables"),
-            db
         })
     }
 }
-
-pub type DbPoolGuard<'a> = MutexGuard<'a, DbPool>;

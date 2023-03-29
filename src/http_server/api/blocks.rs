@@ -12,16 +12,15 @@ pub fn service() -> Scope {
 }
 
 type GetOneResponse = ResultResponse<session_pool::Block, GeneralError>;
-#[derive(TS)]
-#[ts(export, rename = "GetBlockResponse")]
-struct GetOneResponseExport(GetOneResponse);
-
 #[get("/{id}")]
 async fn get_one(app_state: AppStateData, id: Path<String>, req: HttpRequest) -> Response<GetOneResponse> {
     let session = app_state.session_from_request(&req);
     match session.get_block(id.as_str()).await {
         Ok(block) => Response::ok_ok(block),
-        Err(error) => Response::err_err(error.into())
+        Err(error) => {
+            dbg!(&error);
+            Response::err_err(error.into())
+        }
     }
 }
 
@@ -32,10 +31,6 @@ pub struct CreateBody {
 }
 
 type CreateResponse = ResultResponse<String, GeneralError>;
-#[derive(TS)]
-#[ts(export, rename = "CreateBlockResponse")]
-struct CreateResponseExport(CreateResponse);
-
 #[post("/create")]
 async fn create(app_state: AppStateData, body: Json<CreateBody>, req: HttpRequest) -> Response<CreateResponse> {
     let session = app_state.session_from_request(&req);
@@ -53,10 +48,6 @@ pub struct ChangeBody {
 }
 
 type ChangeResponse = ResultResponse<(), GeneralError>;
-#[derive(TS)]
-#[ts(export, rename = "ChangeBlockResponse")]
-struct ChangeResponseExport(ChangeResponse);
-
 #[post("/change")]
 async fn change(app_state: AppStateData, body: Json<ChangeBody>, req: HttpRequest) -> Response<ChangeResponse> {
     let session = app_state.session_from_request(&req);

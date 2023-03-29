@@ -1,7 +1,8 @@
-use crate::{db_pool, auth_validator::{Auth, Tokens, AuthInfo, InfoAsTokensError}};
+use crate::{db_pool, auth_validator::{self, Tokens, AuthInfo, InfoAsTokensError}};
 use crate::activity_logger::Activity;
 use super::{Session, Error as GeneralError};
 use pwhash::bcrypt;
+use serde::Serialize;
 use ts_rs::TS;
 
 const NAME_CHARS: &str = "QAZWSXEDCRFVTGBYHNUJMIKOLPqazwsxedcrfvtgbyhnujmikolp1234567890_";
@@ -63,9 +64,29 @@ impl From<InfoAsTokensError> for LoginError {
     }
 }
 
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+#[serde(tag = "is", content = "data")]
+pub enum AuthMe {
+    Valid {
+        name: String
+    },
+    Invalid
+}
+impl From<auth_validator::Auth> for AuthMe {
+    fn from(auth: auth_validator::Auth) -> Self {
+        match auth {
+            auth_validator::Auth::Valid { ref info } => Self::Valid { name: info.name.clone() },
+            auth_validator::Auth::Invalid(ref data) => Self::Invalid // WARNING "DATA" SHOULD BE USED (probably not silently ignored, instead should be logged somewhere!)
+        }
+    }
+}
+
+
 impl Session {
-    pub async fn me(&self) -> Auth {
-        self.auth.clone()
+    pub async fn me(&self) -> AuthMe {
+        self.auth.clone().into()
     }
 
     pub async fn login(&self, name: &str, password: &str) -> Result<Tokens, LoginError> {

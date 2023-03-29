@@ -123,9 +123,9 @@ pub struct ChangeLabelsBody {
     pub labels: Vec<String>
 }
 
-pub type ChangeChannelLabelsResponse = ResultResponse<(), RoleWrappedError>;
+pub type ChangeLabelsResponse = ResultResponse<(), RoleWrappedError>;
 #[put("/labels")]
-pub async fn change_labels(app_state: AppStateData, body: Json<ChangeLabelsBody>, req: HttpRequest) -> Response<ChangeChannelLabelsResponse> {
+pub async fn change_labels(app_state: AppStateData, body: Json<ChangeLabelsBody>, req: HttpRequest) -> Response<ChangeLabelsResponse> {
     let session = app_state.session_from_request(&req);
     match session.change_channel_labels(&body.id, &body.labels).await {
         Ok(()) => Response::ok_ok(()),

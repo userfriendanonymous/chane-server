@@ -1,7 +1,7 @@
 use actix_web::{Scope, web::{self, Json}, post, get, HttpResponse, cookie::{CookieBuilder, Cookie}, HttpRequest};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use ts_rs::TS;
-use crate::{http_server::{AppStateData, errors::ResultResponse}, auth_validator::Auth};
+use crate::{http_server::{AppStateData, errors::ResultResponse}, session_pool::AuthMe};
 use super::{Response, errors};
 
 pub fn service() -> Scope {
@@ -11,27 +11,10 @@ pub fn service() -> Scope {
     .service(me)
 }
 
-#[derive(Serialize, TS)]
-#[serde(tag = "is", content = "data")]
-pub enum MeResponse {
-    Valid {
-        name: String
-    },
-    Invalid
-}
-impl From<Auth> for MeResponse {
-    fn from(auth: Auth) -> Self {
-        match auth {
-            Auth::Valid { ref info } => Self::Valid { name: info.name.clone() },
-            Auth::Invalid(ref data) => Self::Invalid // WARNING "DATA" SHOULD BE USED (probably not silently ignored, instead should be logged somewhere!)
-        }
-    }
-}
-
 #[get("/me")]
-pub async fn me(app_state: AppStateData, req: HttpRequest) -> Response<MeResponse> {
+pub async fn me(app_state: AppStateData, req: HttpRequest) -> Response<AuthMe> {
     let session = app_state.session_from_request(&req);
-    Response::ok(session.me().await.into())
+    Response::ok(session.me().await)
 }
 
 #[derive(Deserialize, TS)]

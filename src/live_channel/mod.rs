@@ -2,14 +2,16 @@ use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use serde::Serialize;
 use async_trait::async_trait;
 use tokio::sync::{Mutex, mpsc::{UnboundedReceiver, UnboundedSender, self}};
+use ts_rs::TS;
 
 use crate::logger::Logger;
 
 type PeerShared = Arc<dyn Peer + Send + Sync>;
 type Channels = HashMap<String, HashMap<i64, PeerShared>>;
 
-#[derive(Serialize, Clone)]
-#[serde(tag = "topic", content = "data", rename = "snake_case")]
+#[derive(Serialize, Clone, TS)]
+#[ts(export)]
+#[serde(tag = "is", content = "data")]
 pub enum LiveMessage {
     BlockConnected {
         id: String

@@ -6,6 +6,8 @@ use crate::session_pool;
 use super::{AsBuilder, general::GeneralError};
 
 #[derive(Serialize, TS)]
+#[ts(export)]
+#[serde(tag = "is", content = "data")]
 pub enum RoleError {
     Recursion(String),
 }
@@ -25,6 +27,8 @@ impl From<session_pool::RoleError> for RoleError {
 }
 
 #[derive(Serialize, TS)]
+#[ts(export)]
+#[serde(tag = "is", content = "data")]
 pub enum RoleWrappedError {
     Role(RoleError),
     General(GeneralError)
@@ -47,6 +51,8 @@ impl From<session_pool::RoleWrappedError> for RoleWrappedError {
 }
 
 #[derive(Serialize, TS)]
+#[ts(export)]
+#[serde(tag = "is", content = "data")]
 pub enum CreateRoleError {
     General(GeneralError),
     DoesNotExist(String)

@@ -40,6 +40,14 @@ impl Session {
     }
 
     pub async fn connect_block_to_channel(&self, id: &str, block_id: &str) -> Result<(), RoleWrappedError> {
+        // TO BE REMOVED ---------------------------------------
+        let auth = self.auth()?;
+        self.db_pool.connect_block_to_channel(block_id, id).await?;
+        self.live_channel.receive_message(id, &LiveMessage::BlockConnected { id: block_id.to_string() });
+        self.activity_logger.log(Activity::BlockConnectedToChannel { block_id: block_id.to_string(), id: id.to_string(), by: auth.name.clone() });
+        return Ok(());
+        // TO BE REMOVED ---------------------------------------
+
         let auth = self.auth()?;
         
         let (role, channel) = resolve_user_role(self.db_pool.clone(), id, &auth.name).await?;
@@ -119,6 +127,13 @@ impl Session {
     }
 
     pub async fn get_channel_blocks(&self, id: &str, limit: &Option<i64>, offset: &Option<u64>) -> Result<(Vec<Block>, Vec<mongodb::error::Error>), RoleWrappedError> {
+        let (db_blocks, blocks_errors) = self.db_pool.get_channel_blocks(id, limit, offset).await?;
+        let mut blocks = Vec::new();
+        for block in db_blocks {
+            blocks.push(Block::from(block));
+        }
+        return Ok((blocks, blocks_errors)); // WARNING ABOVE CODE TO BE REMOVED
+        
         let auth = self.auth()?;
         let (role, channel) = resolve_user_role(self.db_pool.clone(), id, &auth.name).await?;
         let validator = RolePermissionValidator::new(&role.permissions, &channel.labels);

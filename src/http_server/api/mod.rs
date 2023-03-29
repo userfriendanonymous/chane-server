@@ -8,7 +8,7 @@ mod users;
 mod roles;
 mod live;
 mod auth;
-mod bindings;
+mod activity_table;
 
 pub fn service() -> Scope {
     web::scope("/api")
@@ -17,5 +17,6 @@ pub fn service() -> Scope {
     .service(users::service())
     .service(roles::service())
     .service(auth::service())
-    .service(live::service)
+    .service(activity_table::service())
+    .service(live::service())
 }

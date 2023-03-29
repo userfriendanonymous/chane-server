@@ -1,8 +1,10 @@
 use serde::{Serialize, Deserialize};
+use ts_rs::TS;
 use crate::db_pool;
 use super::{Session, Error as GeneralError};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, TS)]
+#[ts(export)]
 pub struct User {
     name: String,
 }

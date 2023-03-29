@@ -1,6 +1,6 @@
-use super::{DbPool, Error, utils::as_object_id};
+use super::{DbPool, Error, utils::as_obj_id};
 use futures::StreamExt;
-use mongodb::{bson::{doc, oid::ObjectId}, options::FindOptions};
+use mongodb::{bson::doc, options::FindOptions};
 use serde::{Serialize, Deserialize};
 
 const QUERY_LIMIT: i64 = 30;
@@ -16,8 +16,7 @@ pub struct Block {
 
 impl DbPool {
     pub async fn get_block(&self, id: &str) -> Result<Block, Error> {
-        let object_id = as_object_id!(id);
-        let filter = doc! {"_id": object_id};
+        let filter = doc! {"_id": as_obj_id(id)?};
         let result = self.blocks.find_one(filter, None).await?;
         match result {
             Some(model) => {
@@ -35,29 +34,33 @@ impl DbPool {
             connected_channels: connected_channels.to_owned()
         };
         let result = self.blocks.insert_one(document, None).await?;
-        Ok(result.inserted_id.to_string())
+        Ok(result.inserted_id.as_object_id().ok_or(Error::NotFound)?.to_string())
     }
 
     pub async fn change_block(&self, id: &str, content: &str) -> Result<(), Error> {
-        let result = self.blocks.update_one(doc! {"_id": as_object_id!(id)}, doc! {"$set": {
+        let result = self.blocks.update_one(doc! {"_id": as_obj_id(id)?}, doc! {"$set": {
             "content": content
         }}, None).await?;
-        Ok(())
+        if result.modified_count == 0 {
+            Err(Error::NotFound)
+        } else { Ok(()) }
     }
 
     pub async fn connect_block_to_channel(&self, id: &str, channel_id: &str) -> Result<(), Error> {
-        match self.blocks.update_one(doc! {"_id": id}, doc! {"$push": {"connected_channels": channel_id}}, None).await {
-            Ok(result) => if result.modified_count > 1 {
-                Ok(())
-            } else {
+        let data = match self.blocks.update_one(doc! {"_id": as_obj_id(id)?}, doc! {"$push": {"connected_channels": channel_id}}, None).await {
+            Ok(result) => if result.modified_count == 0 {
                 Err(Error::NotFound)
+            } else {
+                Ok(())
             },
             Err(error) => Err(Error::Query(error))
-        }
+        };
+        println!("{data:?}");
+        data
     }
 
     pub async fn disconnect_block_from_channel(&self, id: &str, channel_id: &str) -> Result<(), Error> {
-        match self.blocks.update_one(doc! {"_id": id}, doc! {"$pull": {"connected_channels": channel_id}}, None).await {
+        match self.blocks.update_one(doc! {"_id": as_obj_id(id)?}, doc! {"$pull": {"connected_channels": channel_id}}, None).await {
             Ok(result) => if result.modified_count > 1 {
                 Ok(())
             } else {

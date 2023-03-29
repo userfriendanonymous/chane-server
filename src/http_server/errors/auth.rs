@@ -6,6 +6,7 @@ use super::{general::GeneralError, AsBuilder};
 
 #[derive(Serialize, TS)]
 #[ts(export, rename = "AuthJoinError")]
+#[serde(tag = "is", content = "data")]
 pub enum JoinError {
     InvaildNameChars,
     BadNameLength,
@@ -41,6 +42,7 @@ impl From<session_pool::RegisterError> for JoinError {
 
 #[derive(Serialize, TS)]
 #[ts(export, rename = "AuthLoginError")]
+#[serde(tag = "is", content = "data")]
 pub enum LoginError {
     General(GeneralError),
     InvalidCredentials

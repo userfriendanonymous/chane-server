@@ -2,9 +2,10 @@ use crate::{db_pool::{self, DbPool}, auth_validator::{AuthValidator, Tokens, Aut
 use std::sync::Arc;
 pub use roles::{RoleWrappedError, CreateRoleError, Role, RoleError};
 pub use blocks::Block;
-pub use auth::{RegisterError, LoginError};
+pub use auth::{RegisterError, LoginError, AuthMe};
 pub use channels::Channel;
 pub use users::User;
+pub use activity_table::ActivityTable;
 
 mod auth;
 mod users;
@@ -13,6 +14,7 @@ mod channels;
 mod groups;
 mod roles;
 mod live;
+mod activity_table;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

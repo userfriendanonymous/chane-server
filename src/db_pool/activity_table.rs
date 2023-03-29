@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
-use mongodb::{bson::{doc, oid::ObjectId}};
-use super::{DbPool, Error, utils::as_object_id};
+use mongodb::{bson::doc};
+use super::{DbPool, Error, utils::as_obj_id};
 use ts_rs::TS;
 
 #[derive(Debug, Serialize, Deserialize, Clone, TS)]
@@ -60,8 +60,8 @@ pub enum GlobalActivity {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ActivityTable {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
-    items: Vec<Activity>
+    pub id: Option<String>,
+    pub items: Vec<Activity>
 }
 
 impl DbPool {
@@ -76,7 +76,7 @@ impl DbPool {
 
     pub async fn get_activity_table(&self, id: &str) -> Result<ActivityTable, Error> {
         match self.activity_tables.find_one(doc! {
-            "_id": as_object_id!(id)
+            "_id": as_obj_id(id)?
         }, None).await? {
             Some(table) => Ok(table),
             None => Err(Error::NotFound)
@@ -86,7 +86,7 @@ impl DbPool {
     pub async fn push_to_activity_table(&self, id: &str, items: &[Activity]) -> Result<(), Error> {
         let items_bson = mongodb::bson::to_bson(items)?;
         let result = self.activity_tables.update_one(doc! {
-            "_id": as_object_id!(id)
+            "_id": as_obj_id(id)?
         }, doc! {
             "$push": {
                 "items": {

@@ -1,7 +1,8 @@
+#![allow(clippy::too_many_arguments)]
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
-use super::{DbPool, Error, utils::as_object_id};
-use mongodb::bson::{doc, oid::ObjectId};
+use super::{DbPool, Error, utils::as_obj_id};
+use mongodb::bson::doc;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Channel {
@@ -29,7 +30,7 @@ pub enum ChannelType {
 
 impl DbPool {
     pub async fn get_channel(&self, id: &str) -> Result<Channel, Error> {
-        let filter = doc! {"id": as_object_id!(id)};
+        let filter = doc! {"id": as_obj_id(id)?};
         let result = self.channels.find_one(filter, None).await?;
         match result {
             Some(model) => Ok(model),
@@ -61,7 +62,7 @@ impl DbPool {
         };
 
         let result = self.channels.update_one(doc! {
-            "id": as_object_id!(id)
+            "id": as_obj_id(id)?
         }, doc! {
             "$set": {
                 "pinned_block": pinned_block_id
@@ -76,7 +77,7 @@ impl DbPool {
     }
 
     pub async fn change_channel_description(&self, id: &str, description: &str) -> Result<(), Error> {
-        let result = self.channels.update_one(doc! {"_id": as_object_id!(id)}, doc! {
+        let result = self.channels.update_one(doc! {"_id": as_obj_id(id)?}, doc! {
             "$set": {
                 "description": description
             }
@@ -89,7 +90,7 @@ impl DbPool {
     }
 
     pub async fn change_channel_labels(&self, id: &str, labels: &[String]) -> Result<(), Error> {
-        let result = self.channels.update_one(doc! {"_id": as_object_id!(id)}, doc! {
+        let result = self.channels.update_one(doc! {"_id": as_obj_id(id)?}, doc! {
             "$set": {
                 "labels": labels
             }

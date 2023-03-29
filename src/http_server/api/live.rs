@@ -1,11 +1,11 @@
 use std::sync::Arc;
-
-use actix_web::{HttpRequest, web::{self, Path}, HttpResponse, get};
+use actix_web::{HttpRequest, web::{self, Path}, HttpResponse, get, Scope};
 use serde_json::json;
 use tokio::sync::Mutex;
-use crate::{live_channel::{self, LiveMessage}, logger::Logger, http_server::errors::TransResponse};
-use super::{AppStateData, Response, errors::ResultResponse};
+use crate::{live_channel::{self, LiveMessage}, logger::Logger};
+use super::AppStateData;
 use async_trait::async_trait;
+use futures::StreamExt;
 
 // #[derive(thiserror::Error, Debug)]
 // pub enum Error {
@@ -26,6 +26,11 @@ use async_trait::async_trait;
 //     }
 // }
 
+pub fn service() -> Scope {
+    web::scope("/live")
+    .service(connect)
+}
+
 struct WebsocketPeer {
     session: Mutex<actix_ws::Session>,
     logger: Arc<Logger>
@@ -35,7 +40,7 @@ struct WebsocketPeer {
 impl live_channel::Peer for WebsocketPeer {
     async fn receive_message(&self, message: &LiveMessage) {
         if let Err(error) = self.session.lock().await.text(
-            match serde_json::to_string(&message).map_err(|error| { // rust is flexible with this but now it's quite hard to understand what exactly is going on here..
+            match serde_json::to_string(&message).map_err(|error| {
                 self.logger.log(error.to_string());
             }) {
                 Ok(data) => data,
@@ -47,17 +52,27 @@ impl live_channel::Peer for WebsocketPeer {
     }
 }
 
-#[get("/live/{id}")]
-pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::Payload, id: Path<String>) -> HttpResponse {
+#[get("/{id}")]
+pub async fn connect(app_state: AppStateData, request: HttpRequest, body: web::Payload, id: Path<String>) -> HttpResponse {
+    println!("a2");
     let session = app_state.session_from_request(&request);
-    let handle = match session.live(&id).await {
+    println!("f1");
+    let handle = match session.live(&id).await.map_err(|e| {
+        println!("{e:?}");
+        HttpResponse::InternalServerError().json(json!({"message": "this is wip"}))
+    }) {
         Ok(handle) => handle,
-        Err(error) => return HttpResponse::InternalServerError().json(json!({"message": "this is wip"}))
+        Err(error) => return error
     };
 
-    let (response, session, mut message_stream) = match actix_ws::handle(&request, body) {
+    println!("g1");
+
+    let (response, session, mut message_stream) = match actix_ws::handle(&request, body).map_err(|e| {
+        println!("{e:?}");
+        HttpResponse::InternalServerError().json(json!({"message": e.to_string()}))
+    }) {
         Ok(result) => result,
-        Err(error) => return HttpResponse::InternalServerError().json(json!({"message": error.to_string()}))
+        Err(error) => return error
     };
 
     let peer = Arc::new(WebsocketPeer {
@@ -68,7 +83,11 @@ pub async fn service(app_state: AppStateData, request: HttpRequest, body: web::P
     handle.connect(peer).await;
 
     actix_rt::spawn(async move {
-        while let Some(Ok(_)) = message_stream.recv().await {}
+        println!("lol");
+        while let Some(Ok(msg)) = message_stream.next().await {
+            println!("{msg:?}");
+        }
+        println!("lol2");
 
         handle.disconnect().await;
         let _ = session.close(None).await;

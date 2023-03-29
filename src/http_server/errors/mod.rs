@@ -12,6 +12,7 @@ pub trait AsBuilder {
 
 #[derive(Serialize, TS)]
 #[ts(export)]
+#[serde(tag = "is", content = "data")]
 pub enum ResultResponse<T: Serialize, E: Serialize> {
     Ok(T),
     Err(E)
@@ -26,60 +27,58 @@ impl<T: Serialize, E: Serialize> From<Result<T, E>> for ResultResponse<T, E> {
     }
 }
 
-pub enum TransResultResponse<T: Serialize, E: Serialize> {
-    Ok(T),
-    Err(E),
-    TransErr(TransError)
-}
+// pub enum TransResultResponse<T: Serialize, E: Serialize> {
+//     Ok(T),
+//     Err(E),
+//     TransErr(TransError)
+// }
 
-pub enum TransError {
-    Serialization(serde_json::Error)
-}
-impl From<serde_json::Error> for TransError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serialization(value)
-    }
-}
+// pub enum TransError {
+//     Serialization(serde_json::Error)
+// }
+// impl From<serde_json::Error> for TransError {
+//     fn from(value: serde_json::Error) -> Self {
+//         Self::Serialization(value)
+//     }
+// }
 
-pub struct TransResponse<T: Serialize, F> where F: FnOnce(TransError) -> Response<T> {
-    data: T,
-    response: HttpResponse,
-    fallback: F
-}
+// pub struct TransResponse<T: Serialize, F> where F: FnOnce(TransError) -> Response<T> {
+//     data: T,
+//     response: HttpResponse,
+//     fallback: F
+// }
 
-impl<T: Serialize, F> TransResponse<T, F> where F: FnOnce(TransError) -> Response<T> {
-    fn new(mut builder: HttpResponseBuilder, data: T, fallback: F) -> Self {
-        Self {
-            data,
-            response: builder.finish(),
-            fallback
-        }
-    }
+// impl<T: Serialize, F> TransResponse<T, F> where F: FnOnce(TransError) -> Response<T> {
+//     fn new(mut builder: HttpResponseBuilder, data: T, fallback: F) -> Self {
+//         Self {
+//             data,
+//             response: builder.finish(),
+//             fallback
+//         }
+//     }
 
-    fn from_response(response: HttpResponse, data: T, fallback: F) -> Self {
-        Self {
-            data,
-            response,
-            fallback
-        }
-    }
+//     fn from_response(response: HttpResponse, data: T, fallback: F) -> Self {
+//         Self {
+//             data,
+//             response,
+//             fallback
+//         }
+//     }
 
-    fn build(&self) -> HttpResponse {
-        match serde_json::to_string(&self.data) {
-            Ok(data) => self.response.set_body(BoxBody::new(data)),
-            Err(error) => (self.fallback)(error.into()).build()
-        }
-    }
-}
+//     fn build(&self) -> HttpResponse {
+//         match serde_json::to_string(&self.data) {
+//             Ok(data) => self.response.set_body(BoxBody::new(data)),
+//             Err(error) => (self.fallback)(error.into()).build()
+//         }
+//     }
+// }
 
-
-
-impl<T: Serialize, F> Responder for TransResponse<T, F> where F: FnOnce(TransError) -> Response<T> {
-    type Body = BoxBody;
-    fn respond_to(self, req: &actix_web::HttpRequest) -> HttpResponse<Self::Body> {
-        self.build()
-    }
-}
+// impl<T: Serialize, F> Responder for TransResponse<T, F> where F: FnOnce(TransError) -> Response<T> {
+//     type Body = BoxBody;
+//     fn respond_to(self, req: &actix_web::HttpRequest) -> HttpResponse<Self::Body> {
+//         self.build()
+//     }
+// }
 
 pub struct Response<T: Serialize> {
     data: T,
@@ -88,7 +87,7 @@ pub struct Response<T: Serialize> {
 
 impl<T: Serialize> Responder for Response<T> {
     type Body = BoxBody;
-    fn respond_to(self, req: &actix_web::HttpRequest) -> HttpResponse<Self::Body> {
+    fn respond_to(self, _: &actix_web::HttpRequest) -> HttpResponse<Self::Body> {
         self.build()
     }
 }

@@ -1,10 +1,8 @@
 use serde::{Serialize, Deserialize};
-use ts_rs::TS;
 use super::{DbPool, Error};
 use mongodb::bson::doc;
 
-#[derive(Serialize, Deserialize, Debug, TS)]
-#[ts(export)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct User {
     pub name: String,
     pub email: String,

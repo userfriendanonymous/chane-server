@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
-use super::{Error, DbPool, utils::as_object_id};
-use mongodb::bson::{doc, oid::ObjectId};
+use super::{Error, DbPool, utils::as_obj_id};
+use mongodb::bson::doc;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Role {
@@ -54,7 +54,7 @@ impl RolePermissions {
 
 impl DbPool {
     pub async fn get_role(&self, id: &str) -> Result<Role, Error> {
-        let result = self.roles.find_one(doc! {"_id": as_object_id!(id)}, None).await?;
+        let result = self.roles.find_one(doc! {"_id": as_obj_id(id)?}, None).await?;
         match result {
             Some(model) => Ok(model),
             None => Err(Error::NotFound)
