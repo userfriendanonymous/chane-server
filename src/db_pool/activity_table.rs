@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use mongodb::{bson::doc};
+use mongodb::{bson::{doc, oid::ObjectId}};
 use super::{DbPool, Error, utils::as_obj_id};
 use ts_rs::TS;
 
@@ -60,7 +60,7 @@ pub enum GlobalActivity {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ActivityTable {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
+    pub id: Option<ObjectId>,
     pub items: Vec<Activity>
 }
 

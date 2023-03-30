@@ -54,9 +54,7 @@ impl live_channel::Peer for WebsocketPeer {
 
 #[get("/{id}")]
 pub async fn connect(app_state: AppStateData, request: HttpRequest, body: web::Payload, id: Path<String>) -> HttpResponse {
-    println!("a2");
     let session = app_state.session_from_request(&request);
-    println!("f1");
     let handle = match session.live(&id).await.map_err(|e| {
         println!("{e:?}");
         HttpResponse::InternalServerError().json(json!({"message": "this is wip"}))
@@ -64,8 +62,6 @@ pub async fn connect(app_state: AppStateData, request: HttpRequest, body: web::P
         Ok(handle) => handle,
         Err(error) => return error
     };
-
-    println!("g1");
 
     let (response, session, mut message_stream) = match actix_ws::handle(&request, body).map_err(|e| {
         println!("{e:?}");
@@ -83,11 +79,9 @@ pub async fn connect(app_state: AppStateData, request: HttpRequest, body: web::P
     handle.connect(peer).await;
 
     actix_rt::spawn(async move {
-        println!("lol");
         while let Some(Ok(msg)) = message_stream.next().await {
             println!("{msg:?}");
         }
-        println!("lol2");
 
         handle.disconnect().await;
         let _ = session.close(None).await;

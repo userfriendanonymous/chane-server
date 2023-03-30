@@ -18,7 +18,7 @@ pub struct Role {
 impl From<db_pool::Role> for Role {
     fn from(role: db_pool::Role) -> Self {
         Self {
-            id: role.id.unwrap(),
+            id: role.id.unwrap().to_string(),
             name: role.name,
             owner: role.owner,
             editors: role.editors,

@@ -32,7 +32,7 @@ pub struct CreateBoby {
 }
 
 type CreateResponse = ResultResponse<String, CreateRoleError>;
-#[post("/")]
+#[post("/create")]
 pub async fn create(app_state: AppStateData, body: Json<CreateBoby>, req: HttpRequest) -> Response<CreateResponse> {
     let session = app_state.session_from_request(&req);
     match session.create_role(&body.name, &body.extends, &body.editors, &body.permissions).await {
@@ -51,7 +51,7 @@ pub struct ChangeBody {
 }
 
 type ChangeRoleResponse = ResultResponse<(), GeneralError>;
-#[put("/{id}")]
+#[put("/change/{id}")]
 pub async fn change(app_state: AppStateData, id: Path<String>, body: Json<ChangeBody>, req: HttpRequest) -> Response<ChangeRoleResponse> {
     let session = app_state.session_from_request(&req);
     match session.change_role(id.as_str(), &body.name, &body.extends, &body.editors, body.permissions.clone()).await {

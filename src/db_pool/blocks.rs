@@ -1,6 +1,6 @@
 use super::{DbPool, Error, utils::as_obj_id};
 use futures::StreamExt;
-use mongodb::{bson::doc, options::FindOptions};
+use mongodb::{bson::{doc, oid::ObjectId}, options::FindOptions};
 use serde::{Serialize, Deserialize};
 
 const QUERY_LIMIT: i64 = 30;
@@ -8,7 +8,7 @@ const QUERY_LIMIT: i64 = 30;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Block {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
+    pub id: Option<ObjectId>, // I was struggling because of this, it was giving error when it was "Option<String>" instead of objid
     pub content: String,
     pub owner: String,
     pub connected_channels: Vec<String>
@@ -75,13 +75,13 @@ impl DbPool {
             Some(limit) => limit.clamp(0, QUERY_LIMIT),
             None => QUERY_LIMIT
         };
-        match self.blocks.find(doc! {"connected_channels": channel_id}, Some(FindOptions::builder().limit(Some(limit)).skip(*offset).build())).await {
+        match self.blocks.find(doc! {"connected_channels": channel_id}, Some(FindOptions::builder().limit(Some(limit)).skip(*offset).sort(doc! {"_id": -1}).build())).await {
             Ok(mut result) => {
                 let mut blocks = Vec::new();
                 let mut errors = Vec::new();
                 while let Some(block_result) = result.next().await {
                     match block_result {
-                        Ok(block) => blocks.push(block),
+                        Ok(block) => blocks.insert(0, block),
                         Err(error) => errors.push(error)
                     }
                 }

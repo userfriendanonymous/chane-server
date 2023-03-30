@@ -54,12 +54,12 @@ pub struct DbPool {
 }
 
 impl DbPool {
-    pub async fn new() -> mongodb::error::Result<Self> {
+    pub async fn new(address: &str) -> mongodb::error::Result<Self> {
         let client = Client::with_options(
-            ClientOptions::parse("mongodb://localhost:27017").await?
+            ClientOptions::parse(address).await?
         )?;
         let db = client
-        .database("admin");
+        .database("chane");
         Ok(Self {
             blocks: db.collection("blocks"),
             users: db.collection("users"),

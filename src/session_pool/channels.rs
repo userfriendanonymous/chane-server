@@ -17,7 +17,7 @@ pub struct Channel {
 impl From<db_pool::Channel> for Channel {
     fn from(model: db_pool::Channel) -> Self {
         Self {
-            id: model.id.unwrap(),
+            id: model.id.unwrap().to_string(),
             _type: model._type,
             roles: model.roles,
             default_role: model.default_role,

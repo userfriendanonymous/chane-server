@@ -21,14 +21,14 @@ mod activity_logger;
 #[tokio::main]
 async fn main(){
     dotenv::dotenv().ok();
-
+    
     let auth_keys = auth_validator::Keys {
         access: std::env::var("ACCESS_KEY").unwrap(),
         key: std::env::var("KEY_KEY").unwrap()
     };
     let auth_validator = Arc::new(AuthValidator::new(&auth_keys));
     let logger = Arc::new(Logger::new());
-    let db_pool = Arc::new(DbPool::new().await.unwrap());
+    let db_pool = Arc::new(DbPool::new(std::env::var("DB_ADDRESS").unwrap().as_str()).await.unwrap());
     let live_channel = Arc::new(LiveChannel::new(logger.clone()));
     let activity_logger = Arc::new(ActivityLogger::new(db_pool.clone(), logger.clone()));
     let session_pool = Arc::new(SessionPool::new(db_pool, auth_validator.clone(), live_channel.clone(), activity_logger.clone(), logger.clone())); // everything.clone()

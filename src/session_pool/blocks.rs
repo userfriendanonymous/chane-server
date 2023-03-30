@@ -15,7 +15,7 @@ pub struct Block {
 impl From<db_pool::Block> for Block {
     fn from(model: db_pool::Block) -> Self {
         Self {
-            id: model.id.unwrap(),
+            id: model.id.unwrap().to_string(),
             content: model.content,
             owner: model.owner
         }

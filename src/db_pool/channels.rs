@@ -2,12 +2,12 @@
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
 use super::{DbPool, Error, utils::as_obj_id};
-use mongodb::bson::doc;
+use mongodb::bson::{doc, oid::ObjectId};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Channel {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
+    pub id: Option<ObjectId>,
     #[serde(rename = "type")]
     pub _type: ChannelType,
     pub roles: Vec<(String, String)>,

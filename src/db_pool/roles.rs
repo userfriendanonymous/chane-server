@@ -1,12 +1,12 @@
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
 use super::{Error, DbPool, utils::as_obj_id};
-use mongodb::bson::doc;
+use mongodb::bson::{doc, oid::ObjectId};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Role {
     #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
+    pub id: Option<ObjectId>,
     pub owner: String,
     pub editors: Vec<String>,
     pub name: String,

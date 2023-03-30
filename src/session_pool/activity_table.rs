@@ -12,7 +12,7 @@ pub struct ActivityTable {
 impl From<db_pool::ActivityTable> for ActivityTable {
     fn from(value: db_pool::ActivityTable) -> Self {
         Self {
-            id: value.id.unwrap(),
+            id: value.id.unwrap().to_string(),
             items: value.items
         }
     }
